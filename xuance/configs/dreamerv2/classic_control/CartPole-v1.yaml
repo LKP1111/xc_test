@@ -58,7 +58,7 @@ model_dir: "./models/dreamerv2/"
 
 # World Model start  (TODO 去重)
 discount_: 0.99
-device: "cpu"
+device: "cuda:0"
 horizon: 10  # imagine_horizon
 seq_len: 50  # observe_len
 lambda_: 0.95

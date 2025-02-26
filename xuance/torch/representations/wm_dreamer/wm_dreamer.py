@@ -124,7 +124,7 @@ class WorldModel_DreamerV2(Module):
         imag_reward = imag_reward_dist.mean
 
         """target_value: directly use the mean of the Normal dist"""
-        imag_value_dist = target_critic(imag_modelstate)
+        imag_value_dist = target_critic.to(self.device)(imag_modelstate)
         imag_value = imag_value_dist.mean
 
         """discount: not to sample Bernoulli dist, but to round"""

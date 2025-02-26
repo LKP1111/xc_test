@@ -5,8 +5,8 @@ from xuance import get_runner
 import unittest
 
 n_steps = 10000
-# device = 'cuda:0'
-device = 'cpu'
+device = 'cuda:0'
+# device = 'cpu'
 test_mode = False
 
 

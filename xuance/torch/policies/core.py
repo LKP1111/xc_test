@@ -817,6 +817,7 @@ class OneHotCategoricalActorNet(Module):
         layers.extend(mlp_block(input_shape[0], action_dim, None, None, initialize, device)[0])
         self.model = nn.Sequential(*layers)
         self.dist = None
+        self.device = device
 
     def forward(self, x: Tensor, avail_actions: Optional[Tensor] = None):
         """
@@ -867,6 +868,7 @@ class GaussianCriticNet(Module):
         # TODO 这里最后一层输入 不应该也是 h 吗
         layers.extend(mlp_block(input_shape[0], 1, None, None, initialize, device)[0])
         self.mu = nn.Sequential(*layers)
+        self.device = device
 
     def forward(self, x: Tensor):
         """
@@ -877,4 +879,4 @@ class GaussianCriticNet(Module):
         Returns:
             self.dist: A distribution of value.
         """
-        return torch.distributions.Normal(loc=self.mu(x), scale=torch.tensor(1.0))
+        return torch.distributions.Normal(loc=self.mu(x.to(self.device)), scale=torch.tensor(1.0).to(self.device))

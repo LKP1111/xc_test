@@ -408,6 +408,7 @@ class DreamerV2DISPolicy(Module):
                  use_distributed_training: bool = False):
         super(DreamerV2DISPolicy, self).__init__()
         self.action_dim = action_space.n
+        self.device = device
         # TODO 这里就直接用 xuance 的网络结构了
         """actor Net: model_state -> onehot_action"""
         self.representation = representation
@@ -443,9 +444,9 @@ class DreamerV2DISPolicy(Module):
             act_dist: The action distribution.
             posterior_rssm_state: The posterior rssm state.
         """
-        observation = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
-        prev_nonterm = torch.tensor(prev_nonterm, dtype=torch.float32).unsqueeze(0)
-        prev_action = torch.tensor(prev_action, dtype=torch.float32).unsqueeze(0)
+        observation = torch.tensor(observation, dtype=torch.float32, device=self.device).unsqueeze(0)
+        prev_nonterm = torch.tensor(prev_nonterm, dtype=torch.float32, device=self.device).unsqueeze(0)
+        prev_action = torch.tensor(prev_action, dtype=torch.float32, device=self.device).unsqueeze(0)
         rssm_model_state, posterior_rssm_state = self.representation.rssm_observe(
             observation,
             prev_action,
@@ -490,8 +491,10 @@ class DreamerV2DISPolicy(Module):
         V_lambda = DreamerV2DISPolicy.compute_lambda_return(imag_reward, imag_value, discount_arr, lambda_)
 
         imag_modelstate = out['for_critic']
-        value_dist = self.critic_1(imag_modelstate)
-
+        value_dist = self.critic_1.to(self.device)(imag_modelstate)
+        value_dist.loc = value_dist.loc.to(self.device)
+        # value_dist.scale.to(self.device)  # 不赋值就不行
+        value_dist.scale = value_dist.scale.to(self.device)
         # for actor_loss: imag_reward, imag_value, discount_arr, act_log_probs, act_ent
         # for critic_loss: imag_modelstate, discount, lambda_returns
         return act_log_probs, act_ent, imag_value, V_lambda, value_dist

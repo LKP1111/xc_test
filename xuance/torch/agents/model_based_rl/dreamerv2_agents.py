@@ -124,6 +124,7 @@ class DreamerV2_Agent(OnPolicyAgent):
             act_dist, posterior_rssm_state = self.policy(observations[i], prev_actions[i], prev_nonterm[i],
                                                          prev_rssm_states[i])
             action = act_dist.sample()  # one-hot actions
+            # action = action.long().numpy()[0]  # 目前 batch 只有 1
             action = action.long().cpu().numpy()[0]  # 目前 batch 只有 1
             actions.append(action)
             act_dists.append(act_dist)
