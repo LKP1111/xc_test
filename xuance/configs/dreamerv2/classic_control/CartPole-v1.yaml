@@ -1,0 +1,136 @@
+agent: "DreamerV2"
+env_name: "Classic Control"
+env_id: "CartPole-v1"
+env_seed: 1
+vectorize: "DummyVecEnv"
+learner: "DreamerV2_Learner"
+#policy: "Categorical_AC"
+policy: "Categorical_DreamerV2"
+representation: "WorldModel_DreamerV2"
+runner: "DRL"
+#action: "one-hot"
+
+representation_hidden_size: [128,]
+actor_hidden_size: [128,]
+critic_hidden_size: [128,]
+activation: 'elu'
+
+seed: 1
+parallels: 10
+#parallels: 1
+running_steps: 300000
+horizon_size: 100000  # the horizon size for an environment, buffer_size = horizon_size * parallels.
+#horizon_size: 256  # the horizon size for an environment, buffer_size = horizon_size * parallels.
+n_epochs: 1
+#n_epochs: 5
+# self.buffer_size = self.n_envs * self.horizon_size
+# self.batch_size = self.buffer_size // self.n_minibatch
+n_minibatch: 8  # TODO
+learning_rate_model: 0.0002
+learning_rate_actor: 0.00004
+learning_rate_critic: 0.0001
+
+vf_coef: 0.25
+ent_coef: 0.01
+gae_lambda: 0.95
+gamma: 0.99
+
+# TODO delete
+use_gae: False
+
+use_advnorm: True
+
+use_grad_clip: True  # gradient normalization
+clip_type: 1  # Gradient clip for Mindspore: 0: ms.ops.clip_by_value; 1: ms.nn.ClipByNorm()
+grad_clip_norm: 0.5
+#grad_clip_norm: 100.0
+use_actions_mask: False
+use_obsnorm: True
+use_rewnorm: True
+obsnorm_range: 5
+rewnorm_range: 5
+
+test_steps: 10000
+eval_interval: 50000
+test_episode: 3
+log_dir: "./logs/dreamerv2/"
+model_dir: "./models/dreamerv2/"
+
+# World Model start  (TODO 去重)
+discount_: 0.99
+device: "cpu"
+horizon: 10  # imagine_horizon
+seq_len: 50  # observe_len
+lambda_: 0.95
+rssm_type: 'discrete'
+embedding_size: 200
+rssm_node_size: 200
+rssm_info:
+  deter_size: 200
+  stoch_size: 20
+  class_size: 20
+  category_size: 20
+  min_std: 0.1
+pixel: False
+obs_encoder: # config of ObsEncoder, from MinAtarConfig
+  layers: 3
+  node_size: 100
+  dist: None
+  activation: "elu"
+  kernel: 3
+  depth: 16
+obs_decoder: # config of ObsDecoder, from MinAtarConfig
+  layers: 3
+  node_size: 100
+  dist: 'normal'
+  activation: "elu"
+  kernel: 3
+  depth: 16
+reward:
+  layers: 3
+  node_size: 100
+  dist: 'normal'
+  activation: "elu"
+discount:
+  layers: 3
+  node_size: 100
+  dist: 'binary'
+  activation: "elu"
+  use: True
+loss_scale:
+  kl: 0.1
+  reward: 1.0
+  discount: 5.0
+kl:
+  use_kl_balance: True
+  kl_balance_scale: 0.8
+  use_free_nats: False
+  free_nats: 0.0
+
+# World Model end
+
+# TODO
+training_frequency: 50
+batch_size: 50
+#batch_size: 5
+#batch_size: 1
+#eval_episode: 4
+#eval_render: True
+#save_every: 100000
+#seed_steps: 4000
+
+
+grad_clip: 100.0
+
+#slow_target_update: 100
+#slow_target_fraction: 1.00
+soft_update_frequency: 5
+tau: 0.005
+
+
+# TODO
+actor_grad: 'reinforce'
+actor_grad_mix: 0.0
+# rho = 1 and ita = 1e-3 for Atari; rho = 0 and ita = 1e-4 for continuous control
+ita: 0.001
+rho: 1

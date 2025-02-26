@@ -1,0 +1,146 @@
+# TODO
+# from PPO_Clip config
+# 环境和 Agent 设置
+agent: "DreamerV2"
+vectorize: "Dummy_Atari"
+env_name: "Atari"
+env_id: "ALE/Breakout-v5"
+env_seed: 1
+obs_type: "grayscale"  # choice for Atari env: ram, rgb, grayscale
+img_size: [84, 84]  # default is 210 x 160 in gym[Atari]
+num_stack: 4  # frame stack trick
+frame_skip: 4  # frame skip trick
+noop_max: 30  # Do no-op action for a number of steps in [1, noop_max].
+
+# framework of networks
+representation: "WorldModel_DreamerV2"
+policy: "Categorical_DreamerV2"
+learner: "DreamerV2_Learner"
+runner: "DRL"
+
+# Good HyperParameters for Atari Games, Do not change them.
+filters: [32, 64, 64]
+kernels: [8, 4, 3]
+strides: [4, 2, 1]
+fc_hidden_sizes: [512, ]  # fully connected layer hidden sizes.
+
+# actor critic
+actor_hidden_size: [128, 128]
+critic_hidden_size: [128, 128]
+activation: "elu"
+
+seed: 1
+parallels: 1  # revised: 8 -> 1
+running_steps: 5_000_000  # revised: 10M -> 5M
+# TODO
+horizon_size: 128  # the horizon size for an environment, buffer_size = horizon_size * parallels.
+n_epochs: 4  # TODO
+n_minibatch: 4  # TODO
+learning_rate: 0.00025
+
+vf_coef: 0.25
+ent_coef: 0.01
+target_kl: 0.25  # for PPO_KL agent
+kl_coef: 1.0  # for PPO_KL agent
+clip_range: 0.2  # for PPO_Clip agent
+gamma: 0.99
+use_gae: True
+gae_lambda: 0.95  # gae_lambda: Lambda parameter for calculating N-step advantage
+use_advnorm: True
+
+use_grad_clip: True  # gradient normalization
+clip_type: 1  # Gradient clip for Mindspore: 0: ms.ops.clip_by_value; 1: ms.nn.ClipByNorm()
+grad_clip_norm: 100.0  # 0.5 revised to 100.0, from MinAtarConfig
+use_actions_mask: False
+use_obsnorm: False
+use_rewnorm: False
+obsnorm_range: 5
+rewnorm_range: 5
+
+test_steps: 10000
+eval_interval: 100000
+test_episode: 4
+log_dir: "./logs/dreamerv2/"
+model_dir: "./models/dreamerv2/"
+
+
+
+
+
+# Actor-Critic 网络参数 (来自 MinAtarConfig actor critic)
+actor_dist: "one_hot" # Actor 输出分布类型，来自 MinAtarConfig actor['dist']
+actor_min_std: 1e-4 # Actor 最小标准差，来自 MinAtarConfig actor['min_std']
+actor_init_std: 5 # Actor 初始标准差，来自 MinAtarConfig actor['init_std']
+actor_mean_scale: 5 # Actor 均值缩放，来自 MinAtarConfig actor['mean_scale']
+critic_dist: "normal" # Critic 输出分布类型，来自 MinAtarConfig critic['dist']
+actor_grad: 'reinforce' # Actor 梯度类型，来自 MinAtarConfig actor_grad
+actor_grad_mix: 0.0 # Actor 梯度混合系数, 来自 MinAtarConfig actor_grad_mix
+actor_entropy_scale: 1e-3 # Actor 熵正则化系数, 来自 MinAtarConfig actor_entropy_scale
+
+# exploration, from MinAtarConfig expl
+#expl_train_noise: 0.4
+#expl_eval_noise: 0.0
+#expl_min: 0.05
+#expl_decay: 7000.0
+#expl_type: 'epsilon_greedy'
+
+
+# 训练 (Training) 参数 (部分来自 PPO config, 部分来自 MinAtarConfig training desc)
+seq_len: 50  # from MinAtarConfig seq_len = 50
+train_every: 50 #  每 train_every 步训练一次，来自 MinAtarConfig train_every = 50
+collect_intervals: 5 #  数据收集间隔，来自 MinAtarConfig collect_intervals = 5
+batch_size: 50 #  批大小，来自 MinAtarConfig batch_size = 50
+seed_steps: 4000 #  初始随机步数，来自 MinAtarConfig seed_steps = 4000
+save_every: 100000 #  每 save_every 步保存模型，来自 MinAtarConfig save_every = 1e5
+
+
+# Target Network (from MinAtarConfig objective desc)
+use_slow_target: True # from  MinAtarConfig use_slow_target = True
+slow_target_update: 100 # from MinAtarConfig slow_target_update = 100
+slow_target_fraction: 1.00 # from  MinAtarConfig slow_target_fraction = 1.00
+
+
+
+# World Model (from MinAtarConfig latent space desc and learnt world-models desc)
+world_model:
+  rssm_type: 'discrete' # RSSM 类型，来自 MinAtarConfig
+  embedding_size: 200 # 嵌入层大小，来自 MinAtarConfig
+  rssm_node_size: 200 # RSSM 节点大小，来自 MinAtarConfig
+  rssm_info: # RSSM 详细信息，来自 MinAtarConfig
+    deter_size: 200
+    stoch_size: 20
+    class_size: 20
+    category_size: 20
+    min_std: 0.1
+  obs_encoder: # config of ObsEncoder, from MinAtarConfig
+    layers: 3
+    node_size: 100
+    dist: None
+    activation: "elu"
+    kernel: 3
+    depth: 16
+  obs_decoder: # config of ObsDecoder, from MinAtarConfig
+    layers: 3
+    node_size: 100
+    dist: 'normal'
+    activation: "elu"
+    kernel: 3
+    depth: 16
+  reward: # 奖励预测器配置，来自 MinAtarConfig
+    layers: 3
+    node_size: 100
+    dist: 'normal'
+    activation: "elu" # 将 nn.ELU 转换为字符串 "elu"
+  discount: # 折扣因子预测器配置，来自 MinAtarConfig
+    layers: 3
+    node_size: 100
+    dist: 'binary'
+    activation: "elu" # 将 nn.ELU 转换为字符串 "elu"
+    use: True
+  kl_loss_scale: 0.1 # KL 散度损失缩放，来自 MinAtarConfig loss_scale['kl']
+  reward_loss_scale: 1.0 # 奖励预测损失缩放，来自 MinAtarConfig loss_scale['reward']
+  discount_loss_scale: 5.0 # 折扣因子预测损失缩放，来自 MinAtarConfig loss_scale['discount']
+  use_kl_balance: True # 是否使用 KL 平衡，来自 MinAtarConfig kl['use_kl_balance']
+  kl_balance_scale: 0.8 # KL 平衡缩放系数，来自 MinAtarConfig kl['kl_balance_scale']
+  use_free_nats: False # 是否使用 free nats for KL，来自 MinAtarConfig kl['use_free_nats']
+  free_nats: 0.0 # free nats 值，来自 MinAtarConfig kl['free_nats']
