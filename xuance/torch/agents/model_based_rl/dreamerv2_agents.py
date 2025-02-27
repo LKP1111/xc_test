@@ -149,13 +149,13 @@ class DreamerV2_Agent(OnPolicyAgent):
         """create rssm_states and prev_actions"""
         prev_rssm_states = [self.representation.RSSM.init_rssm_state(1, self.device) for _ in range(self.envs.num_envs)]
         prev_actions = np.zeros([self.envs.num_envs, self.envs.action_space.n])
-        done = np.zeros(self.envs.num_envs, dtype=np.bool8)
+        prev_done = np.zeros(self.envs.num_envs, dtype=np.bool8)
         for _ in tqdm(range(train_steps)):
             step_info = {}
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)  # obs: (10, ~)
             with torch.no_grad():
-                policy_out = self.dreamer_action(obs, prev_actions, ~done, prev_rssm_states)
+                policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states)
             one_hot_acts, dists = policy_out['actions'], policy_out['dists']
             # if not hasattr(self.config, 'action') or not self.config.action == "one-hot":
             acts = np.array(one_hot_acts).argmax(axis=1)
@@ -168,7 +168,7 @@ class DreamerV2_Agent(OnPolicyAgent):
                     critic_loss(value_loss); (posterior)
             """
             """注意这里存的是 (act, rew, next_obs, term)"""
-            self.memory.store(next_obs, acts, self._process_reward(rewards), None, terminals, None)
+            self.memory.store(next_obs, acts, self._process_reward(rewards), None, (terminals.any() or trunctions.any()), None)
             # 至少存了 seq_len 的数据
             if _ >= self.config.seq_len and _ % self.config.training_frequency == 0:
                 train_info = self.train_epochs(n_epochs=self.n_epochs)
@@ -176,6 +176,8 @@ class DreamerV2_Agent(OnPolicyAgent):
 
             if self.learner.iterations % self.config.soft_update_frequency == 0:
                 self.policy.soft_update(tau=self.config.tau)
+
+
             # 为什么满了要清空??
             # if self.memory.full:
             #     train_info = self.train_epochs(n_epochs=self.n_epochs)
@@ -189,6 +191,8 @@ class DreamerV2_Agent(OnPolicyAgent):
             # TODO
             for i in range(self.n_envs):
                 if terminals[i] or trunctions[i]:
+                    """added after noterm_loss checked"""
+                    prev_done[i] = terminals[i] or trunctions[i]
                     """reset rssm_state and prev_action when env terminate"""
                     prev_rssm_states[i] = self.representation.RSSM.init_rssm_state(1, self.device)
                     prev_actions[i] = np.zeros(self.envs.action_space.n)

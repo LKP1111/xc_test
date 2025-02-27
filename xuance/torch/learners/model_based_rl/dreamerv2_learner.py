@@ -64,15 +64,27 @@ class DreamerV2_Learner(Learner):
             act_seq_batch,
             noterm_seq_batch
         )
+        prior_dist = self.policy.representation.RSSM.get_dist(prior)
+        post_dist = self.policy.representation.RSSM.get_dist(post)
+        prior_dist_detach = self.policy.representation.RSSM.get_dist(
+            self.policy.representation.RSSM.rssm_detach(prior))
+        post_dist_detach = self.policy.representation.RSSM.get_dist(
+            self.policy.representation.RSSM.rssm_detach(post))
         """(seq, n_envs * batch, ~)"""
-        kl_div = torch.nn.functional.kl_div
-        obs_loss = -torch.mean(obs_dist.log_prob(obs_seq_batch))
-        rew_loss = -torch.mean(rew_dist.log_prob(rew_seq_batch))
-        noterm_loss = -torch.mean(noterm_dist.log_prob(noterm_seq_batch))
+
+        obs_loss = -torch.sum(torch.mean(obs_dist.log_prob(obs_seq_batch), dim=1))
+        rew_loss = -torch.sum(torch.mean(rew_dist.log_prob(rew_seq_batch), dim=1))
+        # TODO check
+        noterm_loss = -torch.sum(torch.mean(noterm_dist.log_prob(noterm_seq_batch), dim=1))
         alpha = self.config.kl['kl_balance_scale']
-        eps = 1e-8
-        kl_loss = (alpha * kl_div(prior.stoch + eps, post.stoch.detach() + eps) +
-                   (1 - alpha) * kl_div(prior.stoch.detach() + eps, post.stoch + eps))
+        kl_div = torch.distributions.kl.kl_divergence
+        """kl_loss checked"""
+        kl_loss = torch.sum(torch.mean(alpha * kl_div(prior_dist, post_dist_detach) +
+                   (1 - alpha) * kl_div(prior_dist_detach, post_dist), dim=1))
+        # kl_div = torch.nn.functional.kl_div
+        # eps = 1e-8
+        # kl_loss = (alpha * kl_div(prior.stoch + eps, post.stoch.detach() + eps) +
+        #            (1 - alpha) * kl_div(prior.stoch.detach() + eps, post.stoch + eps))
         rew_scale = self.config.loss_scale['reward']
         discount_scale = self.config.loss_scale['discount']
         kl_scale = self.config.loss_scale['kl']
@@ -90,9 +102,9 @@ class DreamerV2_Learner(Learner):
         ita = self.config.ita
         rho = self.config.rho
         """imag_value & V_lambda are all from target_critic"""
-        reinforce_loss = -torch.mean(act_log_probs.unsqueeze(-1) * (V_lambda - imag_value).detach())
-        dynamic_bp_loss = -torch.mean(V_lambda)
-        entropy_loss = -torch.mean(act_ent)
+        reinforce_loss = -torch.sum(torch.mean(act_log_probs.unsqueeze(-1) * (V_lambda - imag_value).detach(), dim=1))
+        dynamic_bp_loss = -torch.sum(torch.mean(V_lambda, dim=1))
+        entropy_loss = -torch.sum(torch.mean(act_ent, dim=1))
         actor_loss = rho * reinforce_loss + (1 - rho) * dynamic_bp_loss + ita * entropy_loss
         self.optimizer['actor'].zero_grad()
         actor_loss.backward()
