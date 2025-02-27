@@ -25,7 +25,7 @@ n_epochs: 1
 #n_epochs: 5
 # self.buffer_size = self.n_envs * self.horizon_size
 # self.batch_size = self.buffer_size // self.n_minibatch
-n_minibatch: 8  # TODO
+n_minibatch: 1  # train 1 times
 learning_rate_model: 0.0002
 learning_rate_actor: 0.00004
 learning_rate_critic: 0.0001
