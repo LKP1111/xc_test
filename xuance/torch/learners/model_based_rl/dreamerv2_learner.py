@@ -53,6 +53,7 @@ class DreamerV2_Learner(Learner):
         act_seq_batch = act_seq_batch.transpose(0, 1).reshape(seq, n_envs * batch, self.n_actions)
         rew_seq_batch = rew_seq_batch.transpose(0, 1).reshape(seq, n_envs * batch, 1)
         noterm_seq_batch = noterm_seq_batch.transpose(0, 1).reshape(seq, n_envs * batch, 1)
+        """act -> obs', rew, noterm"""
 
         """
         model learning
@@ -80,7 +81,7 @@ class DreamerV2_Learner(Learner):
         kl_div = torch.distributions.kl.kl_divergence
         """kl_loss checked"""
         kl_loss = torch.sum(torch.mean(alpha * kl_div(prior_dist, post_dist_detach) +
-                   (1 - alpha) * kl_div(prior_dist_detach, post_dist), dim=1))
+                                       (1 - alpha) * kl_div(prior_dist_detach, post_dist), dim=1))
         # kl_div = torch.nn.functional.kl_div
         # eps = 1e-8
         # kl_loss = (alpha * kl_div(prior.stoch + eps, post.stoch.detach() + eps) +

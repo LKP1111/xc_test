@@ -146,7 +146,7 @@ class DreamerV2_Agent(OnPolicyAgent):
 
     def train(self, train_steps):
         obs = self.envs.buf_obs
-        """create rssm_states and prev_actions"""
+        """prev_rssm_states get prev_done through prev_actions"""
         prev_rssm_states = [self.representation.RSSM.init_rssm_state(1, self.device) for _ in range(self.envs.num_envs)]
         prev_actions = np.zeros([self.envs.num_envs, self.envs.action_space.n])
         prev_done = np.zeros(self.envs.num_envs, dtype=np.bool8)
