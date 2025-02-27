@@ -1,7 +1,7 @@
 agent: "DreamerV2"
 env_name: "Classic Control"
 env_id: "CartPole-v1"
-env_seed: 1
+env_seed: 1111
 vectorize: "DummyVecEnv"
 #vectorize: "SubprocVecEnv"
 learner: "DreamerV2_Learner"
@@ -31,9 +31,9 @@ learning_rate_model: 0.0002
 learning_rate_actor: 0.00004
 learning_rate_critic: 0.0001
 
-#learning_rate_model: 0.00004
-#learning_rate_actor: 0.000008
-#learning_rate_critic: 0.00005  # gan jue shi suan fa xie cuo le, zhe ge tiao zhe me di ye bu xing
+#learning_rate_model: 0.0002
+#learning_rate_actor: 0.00001
+#learning_rate_critic: 0.0001
 
 vf_coef: 0.25
 ent_coef: 0.01
@@ -46,6 +46,7 @@ use_gae: False
 use_advnorm: True
 
 use_grad_clip: True  # gradient normalization
+#use_grad_clip: False  # gradient normalization
 clip_type: 1  # Gradient clip for Mindspore: 0: ms.ops.clip_by_value; 1: ms.nn.ClipByNorm()
 grad_clip_norm: 0.5
 #grad_clip_norm: 100.0
@@ -132,9 +133,10 @@ grad_clip: 100.0
 
 #slow_target_update: 100
 #slow_target_fraction: 1.00
-soft_update_frequency: 5
-tau: 0.005
-#tau: 0.9
+#soft_update_frequency: 5
+#tau: 0.005
+soft_update_frequency: 100
+tau: 1.0  # hard update
 
 # TODO
 actor_grad: 'reinforce'
@@ -143,3 +145,4 @@ actor_grad_mix: 0.0
 #ita: 0.001
 ita: 0.2
 rho: 1.0
+#rho: 0.0

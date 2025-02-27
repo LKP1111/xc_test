@@ -96,6 +96,7 @@ class WorldModel_DreamerV2(Module):
                             obs: torch.Tensor,
                             actions: torch.Tensor,
                             nonterms: torch.Tensor):
+        """actions -> obs, nonterms"""
         embed = self.ObsEncoder(obs)
         prev_rssm_state = self.RSSM.init_rssm_state(obs.shape[1], self.device)
         prior, posterior = self.RSSM.rollout_observation(self.seq_len, embed, actions, nonterms, prev_rssm_state)

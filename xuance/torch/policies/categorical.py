@@ -466,7 +466,7 @@ class DreamerV2DISPolicy(Module):
         Returns the action distribution and posterior_rssm_state for agent action
 
         Parameters:
-            obs_seq_batch: observation
+            obs_seq_batch: observation  (seq, n_envs, batch, ~)
             act_seq_batch:
             noterm_seq_batch:
 

@@ -129,6 +129,7 @@ class RSSM(nn.Module, RSSMUtils): # 定义 RSSM 类，继承自 nn.Module (PyTor
 
     """一系列观测"""
     def rollout_observation(self, seq_len: int, obs_embed: torch.Tensor, action: torch.Tensor, nonterms: torch.Tensor, prev_rssm_state): # 定义方法 rollout_observation，进行观测序列 (Observation sequence) 的展开
+        """action -> obs_embed, nonterms"""
         priors = [] # 初始化列表用于存储先验 RSSM 状态
         posteriors = [] # 初始化列表用于存储后验 RSSM 状态
         for t in range(seq_len): # 循环 seq_len (序列长度) 次
