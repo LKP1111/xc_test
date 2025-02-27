@@ -4,7 +4,6 @@ import torch.nn as nn
 import numpy as np
 from copy import deepcopy
 from gym.spaces import Discrete
-from sympy import gamma
 
 from xuance.common import Sequence, Optional, Callable, Union
 from xuance.torch import Module, Tensor, DistributedDataParallel

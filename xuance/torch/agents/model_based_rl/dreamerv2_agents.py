@@ -168,7 +168,7 @@ class DreamerV2_Agent(OnPolicyAgent):
                     critic_loss(value_loss); (posterior)
             """
             """注意这里存的是 (act, rew, next_obs, term)"""
-            self.memory.store(next_obs, acts, self._process_reward(rewards), None, (terminals.any() or trunctions.any()), None)
+            self.memory.store(next_obs, acts, self._process_reward(rewards), None, (terminals | trunctions), None)
             # 至少存了 seq_len 的数据
             if _ >= self.config.seq_len and _ % self.config.training_frequency == 0:
                 train_info = self.train_epochs(n_epochs=self.n_epochs)
