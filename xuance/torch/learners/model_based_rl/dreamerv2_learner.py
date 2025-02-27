@@ -92,7 +92,7 @@ class DreamerV2_Learner(Learner):
         """imag_value & V_lambda are all from target_critic"""
         reinforce_loss = -torch.mean(act_log_probs.unsqueeze(-1) * (V_lambda - imag_value).detach())
         dynamic_bp_loss = -torch.mean(V_lambda)
-        entropy_loss = torch.mean(act_ent)
+        entropy_loss = -torch.mean(act_ent)
         actor_loss = rho * reinforce_loss + (1 - rho) * dynamic_bp_loss + ita * entropy_loss
         self.optimizer['actor'].zero_grad()
         actor_loss.backward()
@@ -116,18 +116,18 @@ class DreamerV2_Learner(Learner):
         critic_lr = self.optimizer['critic'].state_dict()['param_groups'][0]['lr']
 
         info = {
-            "loss/model_loss": model_loss.item(),
-            "loss/obs_loss": obs_loss.item(),
-            "loss/rew_loss": rew_loss.item(),
-            "loss/noterm_loss": noterm_loss.item(),
-            "loss/kl_loss": kl_loss.item(),
+            "model_loss/model_loss": model_loss.item(),
+            "model_loss/obs_loss": obs_loss.item(),
+            "model_loss/rew_loss": rew_loss.item(),
+            "model_loss/noterm_loss": noterm_loss.item(),
+            "model_loss/kl_loss": kl_loss.item(),
 
+            "actor_loss/actor_loss": actor_loss.item(),
+            "actor_loss/reinforce_loss": reinforce_loss.item(),
+            "actor_loss/dynamic_bp_loss(-V_lambda)": dynamic_bp_loss.item(),
+            "actor_loss/entropy_loss": entropy_loss.item(),
 
-            "loss/actor_loss": actor_loss.item(),
-            "loss/critic_loss": critic_loss.item(),
-            "loss/entropy_loss": entropy_loss.item(),
-
-            # TODO
+            "critic_loss": critic_loss.item(),
 
             "lr/model_lr": model_lr,
             "lr/actor_lr": actor_lr,

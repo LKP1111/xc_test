@@ -4,6 +4,8 @@ import torch.nn as nn
 import numpy as np
 from copy import deepcopy
 from gym.spaces import Discrete
+from sympy import gamma
+
 from xuance.common import Sequence, Optional, Callable, Union
 from xuance.torch import Module, Tensor, DistributedDataParallel
 from xuance.torch.utils import ModuleType
@@ -506,17 +508,19 @@ class DreamerV2DISPolicy(Module):
 
     @staticmethod
     def compute_lambda_return(r, v, gamma, lambda_):
-        """"""
+        """checked!!!"""
         """
-           v[i]: expectation of discounted return, learn from world model
+            v[i]: expectation of discounted return, learn from world model
             V_lambda[i] = r[i] + gamma[i] * (lambda * v[i + 1] + (1 - lambda) * V_lambda[i + 1]) 
             V_lambda[H - 1] = v[H - 1]  
         """
+        """(imagine_horizon, n_envs * seq * batch, ~)"""
         H = v.shape[0]
+        # V_lambda = r[H - 1] + gamma[H - 1] * v[H - 1]  # the paper's approach
         V_lambda = v[H - 1]
-        V_lambda_list = [v[H - 1]]
-        for i in range(H - 1):
-            V_lambda = r[i] + gamma[i] * (lambda_ * v[i + 1] + (1 - lambda_) * V_lambda)
+        V_lambda_list = [V_lambda]
+        for i in reversed(range(0, H - 1)):
+            V_lambda = r[i] + gamma[i] * ((1 - lambda_) * v[i + 1] + lambda_ * V_lambda)
             V_lambda_list.append(V_lambda)
         return torch.flip(torch.stack(V_lambda_list), [0])
 

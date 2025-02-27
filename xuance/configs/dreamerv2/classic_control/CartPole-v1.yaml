@@ -2,7 +2,8 @@ agent: "DreamerV2"
 env_name: "Classic Control"
 env_id: "CartPole-v1"
 env_seed: 1
-vectorize: "DummyVecEnv"
+#vectorize: "DummyVecEnv"
+vectorize: "SubprocVecEnv"
 learner: "DreamerV2_Learner"
 #policy: "Categorical_AC"
 policy: "Categorical_DreamerV2"
@@ -60,7 +61,7 @@ test_episode: 3
 log_dir: "./logs/dreamerv2/"
 model_dir: "./models/dreamerv2/"
 
-# World Model start  (TODO 去重)
+# World Model start  (TODO unique)
 discount_: 0.99
 device: "cuda:0"
 horizon: 10  # imagine_horizon
@@ -137,5 +138,6 @@ tau: 0.005
 actor_grad: 'reinforce'
 actor_grad_mix: 0.0
 # rho = 1 and ita = 1e-3 for Atari; rho = 0 and ita = 1e-4 for continuous control
-ita: 0.001
-rho: 1
+#ita: 0.001
+ita: 0.2
+rho: 1.0
