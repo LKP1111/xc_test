@@ -116,22 +116,22 @@ class DreamerV2_Learner(Learner):
         critic_lr = self.optimizer['critic'].state_dict()['param_groups'][0]['lr']
 
         info = {
-            "model_loss": model_loss.item(),
-            "obs_loss": obs_loss.item(),
-            "rew_loss": rew_loss.item(),
-            "noterm_loss": noterm_loss.item(),
-            "kl_loss": kl_loss.item(),
+            "loss/model_loss": model_loss.item(),
+            "loss/obs_loss": obs_loss.item(),
+            "loss/rew_loss": rew_loss.item(),
+            "loss/noterm_loss": noterm_loss.item(),
+            "loss/kl_loss": kl_loss.item(),
 
 
-            "actor_loss": actor_loss.item(),
-            "critic_loss": critic_loss.item(),
-            "entropy_loss": entropy_loss.item(),
+            "loss/actor_loss": actor_loss.item(),
+            "loss/critic_loss": critic_loss.item(),
+            "loss/entropy_loss": entropy_loss.item(),
 
             # TODO
 
-            "model_lr": model_lr,
-            "actor_lr": actor_lr,
-            "critic_lr": critic_lr,
+            "lr/model_lr": model_lr,
+            "lr/actor_lr": actor_lr,
+            "lr/critic_lr": critic_lr,
         }
 
         return info

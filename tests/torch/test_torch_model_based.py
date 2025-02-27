@@ -4,7 +4,8 @@ from argparse import Namespace
 from xuance import get_runner
 import unittest
 
-n_steps = 10000
+# this is the total running step!!!
+n_steps = 40_0000
 device = 'cuda:0'
 # device = 'cpu'
 test_mode = False

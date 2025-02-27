@@ -30,6 +30,10 @@ learning_rate_model: 0.0002
 learning_rate_actor: 0.00004
 learning_rate_critic: 0.0001
 
+#learning_rate_model: 0.00004
+#learning_rate_actor: 0.000008
+#learning_rate_critic: 0.00005  # gan jue shi suan fa xie cuo le, zhe ge tiao zhe me di ye bu xing
+
 vf_coef: 0.25
 ent_coef: 0.01
 gae_lambda: 0.95
@@ -111,6 +115,7 @@ kl:
 
 # TODO
 training_frequency: 50
+#training_frequency: 5
 batch_size: 50
 #batch_size: 5
 #batch_size: 1
