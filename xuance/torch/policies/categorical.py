@@ -477,7 +477,8 @@ class DreamerV2DISPolicy(Module):
             prior, post
         """
         prior, post = self.representation.rollout_observation(obs_seq_batch, act_seq_batch, noterm_seq_batch)
-        obs_dist, rew_dist, noterm_dist = self.representation.return_dists(post)
+        # obs_dist, rew_dist, noterm_dist = self.representation.return_dists(post)
+        obs_dist, rew_dist, noterm_dist = self.representation.return_dists(post[:-1])
         return obs_dist, rew_dist, noterm_dist, prior, post
 
     def actor_critic_forward(self, prev_rssm_state):
@@ -510,7 +511,7 @@ class DreamerV2DISPolicy(Module):
         """checked!!!"""
         """
             v[i]: expectation of discounted return, learn from world model
-            V_lambda[i] = r[i] + gamma[i] * (lambda * v[i + 1] + (1 - lambda) * V_lambda[i + 1]) 
+            V_lambda[i] = r[i] + gamma[i] * ((1 - lambda) * v[i + 1] + lambda * V_lambda[i + 1]) 
             V_lambda[H - 1] = v[H - 1]  
         """
         """(imagine_horizon, n_envs * seq * batch, ~)"""

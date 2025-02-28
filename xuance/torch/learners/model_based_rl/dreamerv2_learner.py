@@ -73,10 +73,10 @@ class DreamerV2_Learner(Learner):
             self.policy.representation.RSSM.rssm_detach(post))
         """(seq, n_envs * batch, ~)"""
 
-        obs_loss = -torch.sum(torch.mean(obs_dist.log_prob(obs_seq_batch), dim=1))
-        rew_loss = -torch.sum(torch.mean(rew_dist.log_prob(rew_seq_batch), dim=1))
+        obs_loss = -torch.sum(torch.mean(obs_dist.log_prob(obs_seq_batch[:-1]), dim=1))
+        rew_loss = -torch.sum(torch.mean(rew_dist.log_prob(rew_seq_batch[1:]), dim=1))
         # TODO check
-        noterm_loss = -torch.sum(torch.mean(noterm_dist.log_prob(noterm_seq_batch), dim=1))
+        noterm_loss = -torch.sum(torch.mean(noterm_dist.log_prob(noterm_seq_batch[1:]), dim=1))
         alpha = self.config.kl['kl_balance_scale']
         kl_div = torch.distributions.kl.kl_divergence
         """kl_loss checked"""
