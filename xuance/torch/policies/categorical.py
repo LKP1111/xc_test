@@ -471,14 +471,13 @@ class DreamerV2DISPolicy(Module):
             noterm_seq_batch:
 
         Returns:
-            obs_dist:
+            obs_dist:  (seq - 1, n_envs, batch)
             rew_dist:
             noterm_dist:
             prior, post
         """
         prior, post = self.representation.rollout_observation(obs_seq_batch, act_seq_batch, noterm_seq_batch)
-        # obs_dist, rew_dist, noterm_dist = self.representation.return_dists(post)
-        obs_dist, rew_dist, noterm_dist = self.representation.return_dists(post[:-1])
+        obs_dist, rew_dist, noterm_dist = self.representation.return_dists(post)
         return obs_dist, rew_dist, noterm_dist, prior, post
 
     def actor_critic_forward(self, prev_rssm_state):
@@ -493,7 +492,8 @@ class DreamerV2DISPolicy(Module):
         V_lambda = DreamerV2DISPolicy.compute_lambda_return(imag_reward, imag_value, discount_arr, lambda_)
 
         imag_modelstate = out['for_critic']
-        value_dist = self.critic_1.to(self.device)(imag_modelstate)
+        """seq_shift: imag_modelstate[:-1]"""
+        value_dist = self.critic_1.to(self.device)(imag_modelstate[:-1])
         value_dist.loc = value_dist.loc.to(self.device)
         # value_dist.scale.to(self.device)  # 不赋值就不行
         value_dist.scale = value_dist.scale.to(self.device)

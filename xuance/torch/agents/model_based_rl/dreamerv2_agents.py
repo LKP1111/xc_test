@@ -188,7 +188,6 @@ class DreamerV2_Agent(OnPolicyAgent):
             obs = deepcopy(next_obs)
             prev_actions = deepcopy(one_hot_acts)
 
-            # TODO
             for i in range(self.n_envs):
                 if terminals[i] or trunctions[i]:
                     """added after noterm_loss checked"""

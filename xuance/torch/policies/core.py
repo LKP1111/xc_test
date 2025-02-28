@@ -865,7 +865,7 @@ class GaussianCriticNet(Module):
         for h in hidden_sizes:
             mlp, input_shape = mlp_block(input_shape[0], h, normalize, activation, initialize, device)
             layers.extend(mlp)
-        # TODO 这里最后一层输入 不应该也是 h 吗
+        # TODO understanding
         layers.extend(mlp_block(input_shape[0], 1, None, None, initialize, device)[0])
         self.mu = nn.Sequential(*layers)
         self.device = device

@@ -84,10 +84,11 @@ class WorldModel_DreamerV2(Module):
 
     """(seq, n_envs * batch, ~)"""
     def return_dists(self, posterior):
-        model_state = self.RSSM.get_model_state(posterior)  # TODO
-        obs_dist = self.ObsDecoder(model_state)
-        rew_dist = self.RewardDecoder(model_state)
-        noterm_dist = self.DiscountModel(model_state)
+        model_state = self.RSSM.get_model_state(posterior)
+        """seq_shift: model_state[:-1]"""
+        obs_dist = self.ObsDecoder(model_state[:-1])
+        rew_dist = self.RewardDecoder(model_state[:-1])
+        noterm_dist = self.DiscountModel(model_state[:-1])
         """(seq * n_envs * batch, ~)"""
         return obs_dist, rew_dist, noterm_dist
 

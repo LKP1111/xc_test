@@ -20,8 +20,8 @@ seed: 1
 parallels: 10
 #parallels: 1
 running_steps: 300000
-#horizon_size: 100000  # the horizon size for an environment, buffer_size = horizon_size * parallels.
-horizon_size: 256  # the horizon size for an environment, buffer_size = horizon_size * parallels.
+horizon_size: 100000  # the horizon size for an environment, buffer_size = horizon_size * parallels.
+#horizon_size: 256  # the horizon size for an environment, buffer_size = horizon_size * parallels.
 n_epochs: 1
 #n_epochs: 5
 # self.buffer_size = self.n_envs * self.horizon_size

@@ -60,6 +60,7 @@ class DreamerV2_Learner(Learner):
         model_loss = -obs_dist.log_prob(obs_batch) - rew_dist.log_prob(rew_batch) - noterm_dist.log_prob(noterm_batch) + 
                 kl_div(prior, sg(post)) + kl_div(sg(prior), post)
         """
+        """(seq - 1, n_envs * batch, ~) * 3, (seq, n_envs * batch, ~) * 2"""
         obs_dist, rew_dist, noterm_dist, prior, post = self.policy.model_forward(
             obs_seq_batch,
             act_seq_batch,
@@ -71,11 +72,10 @@ class DreamerV2_Learner(Learner):
             self.policy.representation.RSSM.rssm_detach(prior))
         post_dist_detach = self.policy.representation.RSSM.get_dist(
             self.policy.representation.RSSM.rssm_detach(post))
-        """(seq, n_envs * batch, ~)"""
 
+        """seq_shift: obs_seq_batch[:-1], rew_seq_batch[1:], noterm_seq_batch[1:]"""
         obs_loss = -torch.sum(torch.mean(obs_dist.log_prob(obs_seq_batch[:-1]), dim=1))
         rew_loss = -torch.sum(torch.mean(rew_dist.log_prob(rew_seq_batch[1:]), dim=1))
-        # TODO check
         noterm_loss = -torch.sum(torch.mean(noterm_dist.log_prob(noterm_seq_batch[1:]), dim=1))
         alpha = self.config.kl['kl_balance_scale']
         kl_div = torch.distributions.kl.kl_divergence
@@ -103,15 +103,19 @@ class DreamerV2_Learner(Learner):
         ita = self.config.ita
         rho = self.config.rho
         """imag_value & V_lambda are all from target_critic"""
-        reinforce_loss = -torch.sum(torch.mean(act_log_probs.unsqueeze(-1) * (V_lambda - imag_value).detach(), dim=1))
+        """seq_shift: act_log_probs[1:], V_lambda[:-1], imag_value[:-1]"""
+        reinforce_loss = -torch.sum(
+            torch.mean(act_log_probs[1:].unsqueeze(-1) * (V_lambda[:-1] - imag_value[:-1]).detach(), dim=1)
+        )
         dynamic_bp_loss = -torch.sum(torch.mean(V_lambda, dim=1))
-        entropy_loss = -torch.sum(torch.mean(act_ent, dim=1))
+        """seq_shift: act_ent[1:]"""
+        entropy_loss = -torch.sum(torch.mean(act_ent[1:], dim=1))
         actor_loss = rho * reinforce_loss + (1 - rho) * dynamic_bp_loss + ita * entropy_loss
         self.optimizer['actor'].zero_grad()
         actor_loss.backward()
         self.optimizer['actor'].step()
-
-        critic_loss = -torch.mean(value_dist.log_prob(V_lambda.detach()))
+        """seq_shift: V_lambda[:-1]"""
+        critic_loss = -torch.mean(value_dist.log_prob(V_lambda[:-1].detach()))
 
         self.optimizer['critic'].zero_grad()
         critic_loss.backward()
