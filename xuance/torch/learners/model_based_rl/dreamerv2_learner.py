@@ -121,11 +121,10 @@ class DreamerV2_Learner(Learner):
         critic_loss.backward()
         self.optimizer['critic'].step()
 
-        if self.use_grad_clip:
-            torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
-        self.optimizer['actor'].step()
-        if self.scheduler is not None:
-            self.scheduler['actor'].step()
+        # if self.use_grad_clip:
+        #     torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
+        # if self.scheduler is not None:
+        #     self.scheduler['actor'].step()
 
         # Logger
         model_lr = self.optimizer['model'].state_dict()['param_groups'][0]['lr']

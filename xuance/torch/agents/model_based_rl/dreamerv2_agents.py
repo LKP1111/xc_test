@@ -108,7 +108,9 @@ class DreamerV2_Agent(OnPolicyAgent):
                        prev_actions: np.ndarray,
                        prev_nonterm: np.ndarray,
                        prev_rssm_states: List[RSSMDiscState]) -> dict:
-        """Returns actions and dists.
+        """Returns actions and rssm_state.
+            prev_rssm_states(h_0) change to rssm_states(h_1) through prev_actions(a_0)
+            rssm_states(h_1) contain information of current observations(x_1).
         Parameters:
             observations (np.ndarray): The observation.
             prev_actions (np.ndarray): The previous actions.
@@ -116,10 +118,10 @@ class DreamerV2_Agent(OnPolicyAgent):
             prev_rssm_states (List[RSSMDiscState]): The previous rssm states.
         Returns:
             actions: The actions to be executed.
-            dists: The policy distributions.
+            rssm_state: The current posterior_rssm_state after prev_actions.
         """
         actions = []
-        act_dists = []
+        rssm_states = []
         for i in range(self.envs.num_envs):
             act_dist, posterior_rssm_state = self.policy(observations[i], prev_actions[i], prev_nonterm[i],
                                                          prev_rssm_states[i])
@@ -127,8 +129,8 @@ class DreamerV2_Agent(OnPolicyAgent):
             # action = action.long().numpy()[0]  # 目前 batch 只有 1
             action = action.long().cpu().numpy()[0]  # 目前 batch 只有 1
             actions.append(action)
-            act_dists.append(act_dist)
-        return {"actions": actions, "dists": act_dists}
+            rssm_states.append(posterior_rssm_state)
+        return {"actions": actions, "rssm_states": rssm_states}
 
     def train_epochs(self, n_epochs: int = 1) -> dict:
         train_info = {}
@@ -156,19 +158,15 @@ class DreamerV2_Agent(OnPolicyAgent):
             obs = self._process_observation(obs)  # obs: (10, ~)
             with torch.no_grad():
                 policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states)
-            one_hot_acts, dists = policy_out['actions'], policy_out['dists']
+            one_hot_acts, rssm_states = policy_out['actions'], policy_out['rssm_states']
             # if not hasattr(self.config, 'action') or not self.config.action == "one-hot":
             acts = np.array(one_hot_acts).argmax(axis=1)
-            next_obs, rewards, terminals, trunctions, infos = self.envs.step(acts)
+            next_obs, rewards, terminals, truncations, infos = self.envs.step(acts)
             """
-                不需要存 value 和 log_p, 因为 actor_critic update 时只需一个 obs 即可生成完整路径
-                model_loss = obs_loss + reward_loss + term_loss + kl_loss; (obs, act, rew, term)
-                actor_critic_loss = 
-                    actor_loss(rho * reinforce_loss + (1 - rho) * dynamics_loss + entropy_loss) + 
-                    critic_loss(value_loss); (posterior)
+            no need to store value and log_p, because the full traj can be imagined by single obs
+            (act, rew, next_obs, term)
             """
-            """注意这里存的是 (act, rew, next_obs, term)"""
-            self.memory.store(next_obs, acts, self._process_reward(rewards), None, (terminals | trunctions), None)
+            self.memory.store(next_obs, acts, self._process_reward(rewards), None, (terminals | truncations), None)
             # 至少存了 seq_len 的数据
             if _ >= self.config.seq_len and _ % self.config.training_frequency == 0:
                 train_info = self.train_epochs(n_epochs=self.n_epochs)
@@ -177,27 +175,21 @@ class DreamerV2_Agent(OnPolicyAgent):
             if self.learner.iterations % self.config.soft_update_frequency == 0:
                 self.policy.soft_update(tau=self.config.tau)
 
-
-            # 为什么满了要清空??
-            # if self.memory.full:
-            #     train_info = self.train_epochs(n_epochs=self.n_epochs)
-            #     self.log_infos(train_info, self.current_step)
-            #     self.memory.clear()
-
             self.returns = self.gamma * self.returns + rewards  # discounted return
             obs = deepcopy(next_obs)
+            """update prev variables!!!!!!"""
+            prev_rssm_states = deepcopy(rssm_states)
             prev_actions = deepcopy(one_hot_acts)
-
+            prev_done = (terminals | truncations)
             for i in range(self.n_envs):
-                if terminals[i] or trunctions[i]:
-                    """added after noterm_loss checked"""
-                    prev_done[i] = terminals[i] or trunctions[i]
+                if terminals[i] or truncations[i]:
                     """reset rssm_state and prev_action when env terminate"""
                     prev_rssm_states[i] = self.representation.RSSM.init_rssm_state(1, self.device)
                     prev_actions[i] = np.zeros(self.envs.action_space.n)
+                    prev_done[i] = True
                     self.ret_rms.update(self.returns[i:i + 1])
                     self.returns[i] = 0.0
-                    if self.atari and (~trunctions[i]):
+                    if self.atari and (~truncations[i]):
                         pass
                     else:
                         obs[i] = infos[i]["reset_obs"]
