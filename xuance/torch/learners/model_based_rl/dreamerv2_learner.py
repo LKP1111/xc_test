@@ -31,7 +31,6 @@ class DreamerV2_Learner(Learner):
         #                                                 start_factor=1.0,
         #                                                 end_factor=self.end_factor_lr_decay,
         #                                                 total_iters=self.config.running_steps)}
-        # self.tau = config.tau
         self.n_actions = self.policy.action_dim
 
     def update(self, **samples):
@@ -92,6 +91,8 @@ class DreamerV2_Learner(Learner):
         model_loss = obs_loss + rew_scale * rew_loss + discount_scale * noterm_loss + kl_scale * kl_loss
         self.optimizer['model'].zero_grad()
         model_loss.backward()
+        if self.use_grad_clip:
+            torch.nn.utils.clip_grad_norm_(self.policy.model_parameters, self.grad_clip_norm)
         self.optimizer['model'].step()
         """
         actor_critic learning
@@ -113,16 +114,20 @@ class DreamerV2_Learner(Learner):
         actor_loss = rho * reinforce_loss + (1 - rho) * dynamic_bp_loss + ita * entropy_loss
         self.optimizer['actor'].zero_grad()
         actor_loss.backward()
+        if self.use_grad_clip:
+            torch.nn.utils.clip_grad_norm_(self.policy.actor_parameters, self.grad_clip_norm)
         self.optimizer['actor'].step()
         """seq_shift: V_lambda[:-1]"""
         critic_loss = -torch.mean(value_dist.log_prob(V_lambda[:-1].detach()))
 
         self.optimizer['critic'].zero_grad()
         critic_loss.backward()
+        if self.use_grad_clip:
+            torch.nn.utils.clip_grad_norm_(self.policy.critic_parameters, self.grad_clip_norm)
         self.optimizer['critic'].step()
 
-        # if self.use_grad_clip:
-        #     torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
+        if self.use_grad_clip:
+            torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
         # if self.scheduler is not None:
         #     self.scheduler['actor'].step()
 
