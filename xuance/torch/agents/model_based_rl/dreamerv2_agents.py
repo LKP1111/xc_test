@@ -7,7 +7,7 @@ from tqdm import tqdm
 from copy import deepcopy
 from argparse import Namespace
 from xuance.common import Union, DummyOnPolicyBuffer
-from xuance.common.memory_tools import TransitionBuffer, DummyOnPolicyBuffer_Atari
+from xuance.common.memory_tools import TransitionBuffer, DummyOnPolicyBuffer_Atari, TransitionBuffer_Atari
 from xuance.environment import DummyVecEnv, SubprocVecEnv
 from xuance.torch import Module
 from xuance.torch.representations.wm_dreamer.rssm_utils import RSSMDiscState
@@ -46,7 +46,7 @@ class DreamerV2_Agent(OnPolicyAgent):
     def _build_memory(self, auxiliary_info_shape=None):
         self.atari = True if self.config.env_name == "Atari" else False
         # TODO
-        Buffer = DummyOnPolicyBuffer_Atari if self.atari else TransitionBuffer
+        Buffer = TransitionBuffer_Atari if self.atari else TransitionBuffer
         self.buffer_size = self.n_envs * self.horizon_size
         self.batch_size = self.buffer_size // self.n_minibatch
         input_buffer = dict(observation_space=self.observation_space,
@@ -107,7 +107,8 @@ class DreamerV2_Agent(OnPolicyAgent):
     def dreamer_action(self, observations: np.ndarray,
                        prev_actions: np.ndarray,
                        prev_nonterm: np.ndarray,
-                       prev_rssm_states: List[RSSMDiscState]) -> dict:
+                       prev_rssm_states: List[RSSMDiscState],
+                       num_envs: int) -> dict:
         """Returns actions and rssm_state.
             prev_rssm_states(h_0) change to rssm_states(h_1) through prev_actions(a_0)
             rssm_states(h_1) contain information of current observations(x_1).
@@ -116,13 +117,14 @@ class DreamerV2_Agent(OnPolicyAgent):
             prev_actions (np.ndarray): The previous actions.
             prev_nonterm (np.ndarray): The previous nonterm.
             prev_rssm_states (List[RSSMDiscState]): The previous rssm states.
+            num_envs (int): The number of environments.
         Returns:
             actions: The actions to be executed.
             rssm_state: The current posterior_rssm_state after prev_actions.
         """
         actions = []
         rssm_states = []
-        for i in range(self.envs.num_envs):
+        for i in range(num_envs):
             act_dist, posterior_rssm_state = self.policy(observations[i], prev_actions[i], prev_nonterm[i],
                                                          prev_rssm_states[i])
             action = act_dist.sample()  # one-hot actions
@@ -157,7 +159,7 @@ class DreamerV2_Agent(OnPolicyAgent):
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)  # obs: (10, ~)
             with torch.no_grad():
-                policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states)
+                policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states, self.envs.num_envs)
             one_hot_acts, rssm_states = policy_out['actions'], policy_out['rssm_states']
             # if not hasattr(self.config, 'action') or not self.config.action == "one-hot":
             acts = np.array(one_hot_acts).argmax(axis=1)
@@ -203,3 +205,69 @@ class DreamerV2_Agent(OnPolicyAgent):
                             step_info["Train-Episode-Rewards"] = {"env-%d" % i: infos[i]["episode_score"]}
                         self.log_infos(step_info, self.current_step)
             self.current_step += self.n_envs
+
+
+    def test(self, env_fn, test_episodes: int) -> list:
+        test_envs = env_fn()
+        num_envs = test_envs.num_envs
+        videos, episode_videos = [[] for _ in range(num_envs)], []
+        current_episode, scores, best_score = 0, [], -np.inf
+        obs, infos = test_envs.reset()
+        if self.config.render_mode == "rgb_array" and self.render:
+            images = test_envs.render(self.config.render_mode)
+            for idx, img in enumerate(images):
+                videos[idx].append(img)
+        """prev_rssm_states get prev_done through prev_actions"""
+        prev_rssm_states = [self.representation.RSSM.init_rssm_state(1, self.device) for _ in range(num_envs)]
+        prev_actions = np.zeros([num_envs, test_envs.action_space.n])
+        prev_done = np.zeros(num_envs, dtype=np.bool8)
+        while current_episode < test_episodes:
+            self.obs_rms.update(obs)
+            obs = self._process_observation(obs)
+            with torch.no_grad():
+                policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states, num_envs)
+            one_hot_acts, rssm_states = policy_out['actions'], policy_out['rssm_states']
+            acts = np.array(one_hot_acts).argmax(axis=1)
+            next_obs, rewards, terminals, truncations, infos = test_envs.step(acts)
+            if self.config.render_mode == "rgb_array" and self.render:
+                images = test_envs.render(self.config.render_mode)
+                for idx, img in enumerate(images):
+                    videos[idx].append(img)
+            obs = deepcopy(next_obs)
+            """update prev variables!!!!!!"""
+            prev_rssm_states = deepcopy(rssm_states)
+            prev_actions = deepcopy(one_hot_acts)
+            prev_done = (terminals | truncations)
+            for i in range(num_envs):
+                if terminals[i] or truncations[i]:
+                    """reset rssm_state and prev_action when env terminate"""
+                    prev_rssm_states[i] = self.representation.RSSM.init_rssm_state(1, self.device)
+                    prev_actions[i] = np.zeros(test_envs.action_space.n)
+                    prev_done[i] = True
+                    if self.atari and (~truncations[i]):
+                        pass
+                    else:
+                        obs[i] = infos[i]["reset_obs"]
+                        scores.append(infos[i]["episode_score"])
+                        current_episode += 1
+                        if best_score < infos[i]["episode_score"]:
+                            best_score = infos[i]["episode_score"]
+                            episode_videos = videos[i].copy()
+                        if self.config.test_mode:
+                            print("Episode: %d, Score: %.2f" % (current_episode, infos[i]["episode_score"]))
+
+        if self.config.render_mode == "rgb_array" and self.render:
+            # time, height, width, channel -> time, channel, height, width
+            videos_info = {"Videos_Test": np.array([episode_videos], dtype=np.uint8).transpose((0, 1, 4, 2, 3))}
+            self.log_videos(info=videos_info, fps=self.fps, x_index=self.current_step)
+
+        if self.config.test_mode:
+            print("Best Score: %.2f" % (best_score))
+
+        test_info = {
+            "Test-Episode-Rewards/Mean-Score": np.mean(scores),
+            "Test-Episode-Rewards/Std-Score": np.std(scores)
+        }
+        self.log_infos(test_info, self.current_step)
+        test_envs.close()
+        return scores

@@ -420,10 +420,11 @@ class DreamerV2DISPolicy(Module):
                                           normalize, initialize, activation, device)
         self.target_critic_1 = deepcopy(self.critic_1)
 
-        # representation 参数共享
         self.model_parameters = list(self.representation.parameters())
-        self.actor_parameters = list(self.representation.parameters()) + list(self.actor.parameters())
-        self.critic_parameters = list(self.representation.parameters()) + list(self.critic_1.parameters())
+        self.actor_parameters = list(self.actor.parameters())
+        self.critic_parameters = list(self.critic_1.parameters())
+        # self.actor_parameters = list(self.representation.parameters()) + list(self.actor.parameters())
+        # self.critic_parameters = list(self.representation.parameters()) + list(self.critic_1.parameters())
 
     """(n_env = 1, ~)"""
 

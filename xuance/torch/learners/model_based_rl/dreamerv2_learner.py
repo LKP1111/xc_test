@@ -36,7 +36,7 @@ class DreamerV2_Learner(Learner):
     def update(self, **samples):
         self.iterations += 1
         """(n_envs, seq, batch, ~)"""
-        obs_seq_batch = torch.as_tensor(samples['obs'], device=self.device)
+        obs_seq_batch = torch.as_tensor(samples['obs'], device=self.device).float()
         act_seq_batch = torch.as_tensor(samples['act'], device=self.device)
         # if not hasattr(self.config, 'action') or not self.config.action == "one-hot":
         # process to one_hot_act

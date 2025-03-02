@@ -649,3 +649,34 @@ class TransitionBuffer(DummyOnPolicyBuffer):
         obs, act, rew, term = self._retrieve_batch(np.asarray([self._sample_idx(l) for _ in range(n)]), n, l)
         """return: (act, rew, obs', term); shape: (n_envs, seq, batch, ~)"""
         return obs, act, rew, term
+
+
+
+class TransitionBuffer_Atari(DummyOnPolicyBuffer_Atari):
+    def _sample_idx(self, L):
+        valid_idx = False
+        idxs = None
+        while not valid_idx:
+            idx = np.random.randint(0, self.n_size if self.full else self.ptr - L)
+            idxs = np.arange(idx, idx + L) % self.n_size
+            valid_idx = self.ptr not in idxs[1:]
+        return idxs
+
+    def _retrieve_batch(self, idxs, n, l):
+        vec_idxs = idxs.transpose().reshape(-1)
+        observation = self.observations[:, vec_idxs]
+        return (
+            observation.reshape(self.n_envs, l, n, *self.observation_space.shape),
+            self.actions[:, vec_idxs].reshape(self.n_envs, l, n),
+            self.rewards[:, vec_idxs].reshape(self.n_envs, l, n),
+            self.terminals[:, vec_idxs].reshape(self.n_envs, l, n)
+        )
+
+    def sample_traj(self, batch_size, seq_len):
+        n = batch_size
+        l = seq_len
+        """after np.asarray, shape: (batch, seq)"""
+        """after retrieve_batch, shape: (n_envs, seq, batch, ~)"""
+        obs, act, rew, term = self._retrieve_batch(np.asarray([self._sample_idx(l) for _ in range(n)]), n, l)
+        """return: (act, rew, obs', term); shape: (n_envs, seq, batch, ~)"""
+        return obs, act, rew, term

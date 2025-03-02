@@ -13,6 +13,7 @@ class WorldModel_DreamerV2(Module):
     def __init__(self, config):
         super(WorldModel_DreamerV2, self).__init__()
         """WM"""
+        # TODO unique and delete unnecessary var & comments
         # 定义 _model_initialize 方法，初始化模型组件 (initialize model components)
         self.config = config  # 将配置对象赋值给 self.config 属性
         self.action_size = config.action_size  # 从配置中获取动作空间大小 (action space size)
@@ -58,10 +59,10 @@ class WorldModel_DreamerV2(Module):
         self.RewardDecoder = DenseModel((1,), self.modelstate_size, config.reward).to(
             self.device)
 
-        if config.discount['use']:
-            """DiscountModel: h + z -> gamma"""
-            self.DiscountModel = DenseModel((1,), self.modelstate_size, config.discount).to(
-                self.device)  # 创建 DiscountModel 实例并放到指定设备上 (create DiscountModel instance and move to device)
+        # if config.discount['use']:
+        """DiscountModel: h + z -> gamma"""
+        self.DiscountModel = DenseModel((1,), self.modelstate_size, config.discount).to(
+            self.device)  # 创建 DiscountModel 实例并放到指定设备上 (create DiscountModel instance and move to device)
 
         if config.pixel:  # if using pixel observations
             self.ObsEncoder = ObsEncoder(obs_shape, embedding_size, config.obs_encoder).to(self.device)
@@ -69,10 +70,6 @@ class WorldModel_DreamerV2(Module):
         else:  # if not using pixel observations
             self.ObsEncoder = DenseModel((embedding_size,), int(np.prod(obs_shape)), config.obs_encoder).to(self.device)
             self.ObsDecoder = DenseModel(obs_shape, self.modelstate_size, config.obs_decoder).to(self.device)
-
-        """记录隐藏状态 deter(h1) + stoch(z1) 与前一个动作 a1"""
-        # self.prev_rssm_state = self.RSSM.init_rssm_state(1)
-        # self.prev_action = torch.zeros(1, self.action_size).to(self.device)
 
     """obs(x2) -> rssm_model_state[deter(h2), stoch(z2)]"""
     def rssm_observe(self, obs, prev_action, prev_nonterm, prev_rssm_state):

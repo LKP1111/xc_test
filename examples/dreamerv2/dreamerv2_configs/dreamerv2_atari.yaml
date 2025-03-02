@@ -1,8 +1,21 @@
+dl_toolbox: "torch"  # The deep learning toolbox. Choices: "torch", "mindspore", "tensorlayer"
+project_name: "XuanCe_Benchmark"
+logger: "tensorboard"  # Choices: tensorboard, wandb.
+wandb_user_name: "your_user_name"
+render: False
+render_mode: 'rgb_array' # Choices: 'human', 'rgb_array'.
+fps: 50
+test_mode: False
+
+
 # TODO
 obs_type: "grayscale"  # choice for Atari env: ram, rgb, grayscale
-img_size: [84, 84]  # default is 210 x 160 in gym[Atari]
-num_stack: 4  # frame stack trick
-frame_skip: 4  # frame skip trick
+#img_size: [84, 84]  # default is 210 x 160 in gym[Atari]
+#num_stack: 4  # frame stack trick
+#frame_skip: 4  # frame skip trick
+img_size: [64, 64]  # default is 210 x 160 in gym[Atari]
+num_stack: 1  # frame stack trick
+frame_skip: 1  # frame skip trick
 noop_max: 30  # Do no-op action for a number of steps in [1, noop_max].
 
 # Good HyperParameters for Atari Games, Do not change them.
@@ -29,36 +42,31 @@ critic_hidden_size: [128,]
 activation: 'elu'
 
 seed: 1
-parallels: 10
+#parallels: 10
+parallels: 8
+#parallels: 5
 #parallels: 1
-running_steps: 300000
+running_steps: 10000000  # 10M
 horizon_size: 100000  # the horizon size for an environment, buffer_size = horizon_size * parallels.
-#horizon_size: 256  # the horizon size for an environment, buffer_size = horizon_size * parallels.
 n_epochs: 1
 #n_epochs: 5
 # self.buffer_size = self.n_envs * self.horizon_size
-# self.batch_size = self.buffer_size // self.n_minibatch
+# self.batch_size = self.buffer_size // self.n_minibatch in prev on-policy agent
 n_minibatch: 1  # train 1 times
 learning_rate_model: 0.0002
 learning_rate_actor: 0.00004
 learning_rate_critic: 0.0001
 
-#learning_rate_model: 0.0002
-#learning_rate_actor: 0.00001
-#learning_rate_critic: 0.0001
-
+# TODO delete start
 vf_coef: 0.25
 ent_coef: 0.01
 gae_lambda: 0.95
 gamma: 0.99
-
-# TODO delete
 use_gae: False
-
-use_advnorm: True
+use_advnorm: False
+# TODO delete end
 
 use_grad_clip: True  # gradient normalization
-#use_grad_clip: False  # gradient normalization
 clip_type: 1  # Gradient clip for Mindspore: 0: ms.ops.clip_by_value; 1: ms.nn.ClipByNorm()
 #grad_clip_norm: 0.5
 grad_clip_norm: 100.0
@@ -71,52 +79,51 @@ obsnorm_range: 5
 rewnorm_range: 5
 
 test_steps: 10000
-eval_interval: 50000
+eval_interval: 100000
 test_episode: 3
 log_dir: "./logs/dreamerv2/"
 model_dir: "./models/dreamerv2/"
 
 # World Model start  (TODO unique)
-discount_: 0.99
+discount_: 0.995
 device: "cuda:0"
-horizon: 10  # imagine_horizon
+horizon: 15  # imagine_horizon
 seq_len: 50  # observe_len
 lambda_: 0.95
 rssm_type: 'discrete'
 embedding_size: 200
-rssm_node_size: 200
+rssm_node_size: 600
 rssm_info:
-  deter_size: 200
-  stoch_size: 20
-  class_size: 20
-  category_size: 20
+  deter_size: 600
+  stoch_size: 32
+  class_size: 32
+  category_size: 32
   min_std: 0.1
 pixel: True
-obs_encoder: # config of ObsEncoder, from MinAtarConfig
-  layers: 3
-  node_size: 100
+obs_encoder:
+  layers: 4
+  node_size: 600
   dist: None
   activation: "elu"
   kernel: 3
-  depth: 16
-obs_decoder: # config of ObsDecoder, from MinAtarConfig
-  layers: 3
-  node_size: 100
+  depth: 48
+obs_decoder:
+  layers: 4
+  node_size: 600
   dist: 'normal'
   activation: "elu"
   kernel: 3
-  depth: 16
+  depth: 48
 reward:
-  layers: 3
-  node_size: 100
+  layers: 4
+  node_size: 600
   dist: 'normal'
   activation: "elu"
 discount:
-  layers: 3
-  node_size: 100
+  layers: 4
+  node_size: 600
   dist: 'binary'
   activation: "elu"
-  use: True
 loss_scale:
   kl: 0.1
   reward: 1.0
@@ -130,10 +137,10 @@ kl:
 # World Model end
 
 # TODO
-training_frequency: 50
-#training_frequency: 5
-batch_size: 50
-#batch_size: 5
+#training_frequency: 50
+training_frequency: 16
+#batch_size: 50
+batch_size: 8  # batch_size * parallels = total_batch, 8 * 8 = 64
 #batch_size: 1
 #eval_episode: 4
 #eval_render: True
@@ -143,7 +150,6 @@ batch_size: 50
 
 grad_clip: 100.0
 
-#slow_target_update: 100
 #slow_target_fraction: 1.00
 #soft_update_frequency: 5
 #tau: 0.005
@@ -154,7 +160,14 @@ tau: 1.0  # hard update
 actor_grad: 'reinforce'
 actor_grad_mix: 0.0
 # rho = 1 and ita = 1e-3 for Atari; rho = 0 and ita = 1e-4 for continuous control
-#ita: 0.001
-ita: 0.2
+ita: 0.001
 rho: 1.0
 #rho: 0.0
+
+
+# ----------------------------------------------------
+
+distributed_training: False  # Whether to use multi-GPU for distributed training.
+master_port: '12355'  # The master port for current experiment when use distributed training.
+
+

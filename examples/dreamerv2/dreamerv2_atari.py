@@ -1,44 +1,40 @@
 import argparse
 import numpy as np
 from copy import deepcopy
-
-from pyglet import model
-
 from xuance.common import get_configs, recursive_dict_update
 from xuance.environment import make_envs
 from xuance.torch.utils.operations import set_seed
-from xuance.torch.agents import PPOCLIP_Agent
+from xuance.torch.agents import DreamerV2_Agent
 
 
 def parse_args():
-    parser = argparse.ArgumentParser("Example of XuanCe: PPO for Atari.")
+    parser = argparse.ArgumentParser("Example of XuanCe: Dreamerv2 for Atari.")
     parser.add_argument("--env-id", type=str, default="ALE/Breakout-v5")
+    parser.add_argument("--test", type=int, default=0)
+    parser.add_argument("--benchmark", type=int, default=1)
 
-    """benchmark"""
-    # parser.add_argument("--test", type=int, default=0)
-    # parser.add_argument("--benchmark", type=int, default=1)
-
+    parser.add_argument("--running_steps", type=int, default=10_000_000)  # 10M
     """test & render"""
-    parser.add_argument("--test", type=int, default=1)
-    parser.add_argument("--parallels", type=int, default=1)
-    parser.add_argument("--test_episode", type=int, default=1)
-    parser.add_argument("--benchmark", type=int, default=0)
-
-    parser.add_argument("--render", type=bool, default=True)
-    parser.add_argument("--render_mode", type=str, default="human")
+    # parser.add_argument("--test", type=int, default=1)
+    # parser.add_argument("--parallels", type=int, default=1)
+    # parser.add_argument("--test_episode", type=int, default=1)
+    # parser.add_argument("--benchmark", type=int, default=0)
+    #
+    # parser.add_argument("--render", type=bool, default=True)
+    # parser.add_argument("--render_mode", type=str, default="human")
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     parser = parse_args()
-    configs_dict = get_configs(file_dir="ppo_configs/ppo_atari.yaml")
+    configs_dict = get_configs(file_dir="dreamerv2_configs/dreamerv2_atari.yaml")
     configs_dict = recursive_dict_update(configs_dict, parser.__dict__)
     configs = argparse.Namespace(**configs_dict)
 
     set_seed(configs.seed)
     envs = make_envs(configs)
-    Agent = PPOCLIP_Agent(config=configs, envs=envs)
+    Agent = DreamerV2_Agent(config=configs, envs=envs)
 
     train_information = {"Deep learning toolbox": configs.dl_toolbox,
                          "Calculating device": configs.device,
@@ -84,8 +80,7 @@ if __name__ == "__main__":
                 return make_envs(configs)
 
 
-            # Agent.load_model(path=Agent.model_dir_load)
-            Agent.load_model(path=Agent.model_dir_load, model='seed_1_2025_0302_145052(score-61, 5-lives)')
+            Agent.load_model(path=Agent.model_dir_load)
             scores = Agent.test(env_fn, configs.test_episode)
             print(f"Mean Score: {np.mean(scores)}, Std: {np.std(scores)}")
             print("Finish testing.")
