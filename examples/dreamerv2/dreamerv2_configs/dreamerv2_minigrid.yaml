@@ -1,0 +1,141 @@
+dl_toolbox: "torch"  # The deep learning toolbox. Choices: "torch", "mindspore", "tensorlayer"
+project_name: "XuanCe_Benchmark"
+logger: "tensorboard"  # Choices: tensorboard, wandb.
+wandb_user_name: "your_user_name"
+render: False
+render_mode: 'rgb_array' # Choices: 'human', 'rgb_array'.
+fps: 50
+test_mode: False
+device: "cuda:0"  # Choose an calculating device. PyTorch: "cpu", "cuda:0"; TensorFlow: "cpu"/"CPU", "gpu"/"GPU"; MindSpore: "CPU", "GPU", "Ascend", "Davinci".
+distributed_training: False  # Whether to use multi-GPU for distributed training.
+master_port: '12355'  # The master port for current experiment when use distributed training.
+
+agent: "DreamerV2"  # choice: PPO_Clip, PPO_KL
+env_name: "MiniGrid"
+env_id: "MiniGrid-Empty-5x5-v0"
+env_seed: 1
+RGBImgPartialObsWrapper: True  # POMDP
+ImgObsWrapper: False
+vectorize: "DummyVecEnv"
+learner: "DreamerV2_Learner"
+policy: "Categorical_DreamerV2"  # choice: Gaussian_AC for continuous actions, Categorical_AC for discrete actions.
+representation: "WorldModel_DreamerV2"
+
+#representation_hidden_size: [256,]
+actor_hidden_size: [256,]
+critic_hidden_size: [256,]
+activation: "elu"
+
+seed: 79811
+parallels: 8
+running_steps: 100000
+horizon_size: 100000  # the horizon size for an environment, buffer_size = horizon_size * parallels.
+#n_epochs: 16
+#n_minibatch: 8
+n_epochs: 1
+n_minibatch: 1
+learning_rate_model: 0.0002
+learning_rate_actor: 0.00004
+learning_rate_critic: 0.0001
+
+# TODO delete start
+vf_coef: 0.25
+ent_coef: 0.0
+target_kl: 0.25  # for PPO_KL agent
+kl_coef: 1.0  # for PPO_KL agent
+clip_range: 0.2  # for PPO_Clip agent
+gamma: 0.99
+use_gae: True
+gae_lambda: 0.95
+use_advnorm: True
+# TODO delete end
+
+use_grad_clip: True  # gradient normalization
+clip_type: 1  # Gradient clip for Mindspore: 0: ms.ops.clip_by_value; 1: ms.nn.ClipByNorm()
+grad_clip_norm: 100.0
+use_actions_mask: False
+use_obsnorm: True
+use_rewnorm: True
+obsnorm_range: 5
+rewnorm_range: 5
+
+test_steps: 10000
+eval_interval: 1000
+test_episode: 5
+log_dir: "./logs/dreamerv2/"
+model_dir: "./models/dreamerv2/"
+
+# World Model start  (TODO unique)
+discount_: 0.995
+#horizon: 15  # imagine_horizon
+#seq_len: 50  # observe_len
+horizon: 10  # imagine_horizon
+seq_len: 25  # observe_len
+lambda_: 0.95
+rssm_type: 'discrete'
+embedding_size: 200
+rssm_node_size: 200
+rssm_info:
+  deter_size: 200
+  stoch_size: 32
+  class_size: 32
+  category_size: 32
+  min_std: 0.1
+pixel: True
+obs_encoder:
+  layers: 4
+  node_size: 200
+  dist: None
+  activation: "elu"
+  kernel: 4
+  depth: 48
+obs_decoder:
+  layers: 4
+  node_size: 200
+  dist: 'normal'
+  activation: "elu"
+  kernel: 4
+  depth: 48
+reward:
+  layers: 4
+  node_size: 200
+  dist: 'normal'
+  activation: "elu"
+discount:
+  layers: 4
+  node_size: 200
+  dist: 'binary'
+  activation: "elu"
+loss_scale:
+  kl: 0.1
+  reward: 1.0
+  discount: 5.0
+kl:
+  use_kl_balance: True
+  kl_balance_scale: 0.8
+  use_free_nats: False
+  free_nats: 0.0
+
+# World Model end
+
+# TODO
+training_frequency: 50
+#training_frequency: 16
+#batch_size: 50
+batch_size: 8  # batch_size * parallels = total_batch, 8 * 8 = 64
+
+
+grad_clip: 100.0
+
+#slow_target_fraction: 1.00
+#soft_update_frequency: 5
+#tau: 0.005
+soft_update_frequency: 100
+tau: 1.0  # hard update
+
+# TODO
+actor_grad: 'reinforce'
+actor_grad_mix: 0.0
+# rho = 1 and ita = 1e-3 for Atari; rho = 0 and ita = 1e-4 for continuous control
+ita: 0.001
+rho: 1.0

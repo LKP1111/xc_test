@@ -2,8 +2,6 @@ import numpy as np
 import torch
 import torch.distributions as td
 import torch.nn as nn
-from tensorboard.plugins.image.summary_v2 import image
-from triton.language.semantic import permute
 
 
 class ObsEncoder(nn.Module):
@@ -17,7 +15,7 @@ class ObsEncoder(nn.Module):
         # activation = info['activation']
         activation = nn.ELU
         d = info['depth']  # 48
-        k  = info['kernel']  # 3
+        k = info['kernel']  # 3
         self.k = k
         self.d = d
         self.convolutions = nn.Sequential(
@@ -55,7 +53,7 @@ class ObsEncoder(nn.Module):
         conv2_shape = conv_out_shape(conv1_shape, 0, self.k, 2)
         conv3_shape = conv_out_shape(conv2_shape, 0, self.k, 2)
         conv4_shape = conv_out_shape(conv3_shape, 0, self.k, 2)
-        embed_size = int(8*self.d*np.prod(conv4_shape).item())
+        embed_size = int(8 * self.d * np.prod(conv4_shape).item())
         return embed_size
 
 class ObsDecoder(nn.Module):
@@ -72,7 +70,7 @@ class ObsDecoder(nn.Module):
         # activation = info['activation']
         activation = nn.ELU
         d = info['depth']
-        k  = info['kernel']
+        k = info['kernel']
         conv1_shape = conv_out_shape(output_shape[1:], 0, k, 2)
         conv2_shape = conv_out_shape(conv1_shape, 0, k, 2)
         conv3_shape = conv_out_shape(conv2_shape, 0, k, 2)
@@ -84,13 +82,13 @@ class ObsDecoder(nn.Module):
         else:
             self.linear = nn.Linear(embed_size, np.prod(self.conv_shape).item())
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(8 * d, 4 * d, k, 2),
+            nn.ConvTranspose2d(8 * d, 4 * d, k, 2, output_padding=1),
             activation(),
             nn.ConvTranspose2d(4 * d, 2 * d, k, 2),
             activation(),
-            nn.ConvTranspose2d(2 * d, d, k, 2),
+            nn.ConvTranspose2d(2 * d, d, k, 2, output_padding=1),
             activation(),
-            nn.ConvTranspose2d(d, c, k, 2, output_padding=1),
+            nn.ConvTranspose2d(d, c, k, 2),
         )
 
     def forward(self, x):
@@ -100,7 +98,12 @@ class ObsDecoder(nn.Module):
         x = x.reshape(squeezed_size, embed_size)
         x = self.linear(x)
         x = torch.reshape(x, (squeezed_size, *self.conv_shape))
-        x = self.decoder(x)
+        x = self.decoder(x)  # (3136, 3, 56, 56)
+        """permute"""
+        num_dims = len(x.shape)
+        new_order = tuple(range(num_dims))[:-3] + (num_dims - 2, num_dims - 1, num_dims - 3)
+        x = x.permute(*new_order)
+
         mean = torch.reshape(x, (*batch_shape, *self.output_shape))
         obs_dist = td.Independent(td.Normal(mean, 1), len(self.output_shape))
         return obs_dist

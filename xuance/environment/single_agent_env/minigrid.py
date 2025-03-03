@@ -17,10 +17,10 @@ class MiniGridEnv(RawEnvironment):
     """
     def __init__(self, config):
         super(MiniGridEnv, self).__init__()
-        rgb_img_partial_obs_wrapper = config.RGBImgPartialObsWrapper,
+        self.rgb_img_partial_obs_wrapper = config.RGBImgPartialObsWrapper
         img_obs_wrapper = config.ImgObsWrapper
         self.env = gym.make(config.env_id, render_mode=config.render_mode)
-        if rgb_img_partial_obs_wrapper:
+        if self.rgb_img_partial_obs_wrapper:
             self.env = RGBImgPartialObsWrapper(self.env)
         if img_obs_wrapper:
             self.env = ImgObsWrapper(self.env)
@@ -28,9 +28,13 @@ class MiniGridEnv(RawEnvironment):
 
         self.env_id = config.env_id
         self.render_mode = config.render_mode
-        self.image_size = np.prod(self.env.observation_space['image'].shape)  # height * width * channels
-        self.dim_obs = self.image_size + 1  # direction
-        self.observation_space = Box(low=0, high=255, shape=[self.dim_obs, ], dtype=np.uint8)
+        if self.rgb_img_partial_obs_wrapper:  # pomdp do not need direction info
+            self.image_size = self.env.observation_space['image'].shape
+            self.observation_space = Box(low=0, high=255, shape=[*self.image_size], dtype=np.uint8)
+        else:
+            self.image_size = np.prod(self.env.observation_space['image'].shape)  # height * width * channels
+            self.dim_obs = self.image_size + 1  # direction
+            self.observation_space = Box(low=0, high=255, shape=[self.dim_obs, ], dtype=np.uint8)
         self.action_space = self.env.action_space
         self.max_episode_steps = self.env.env.env.max_steps
 
@@ -45,15 +49,13 @@ class MiniGridEnv(RawEnvironment):
     def reset(self):
         """Reset the environment."""
         obs_raw, info = self.env.reset()
-        obs = self.flatten_obs(obs_raw)
-        return obs, info
+        return self._get_obs(obs_raw), info
 
     def step(self, actions):
         """Execute the actions and get next observations, rewards, and other information."""
         obs_raw, reward, terminated, truncated, info = self.env.step(actions)
-        observation = self.flatten_obs(obs_raw)
         reward *= 10
-        return observation, reward, terminated, truncated, info
+        return self._get_obs(obs_raw), reward, terminated, truncated, info
 
     def flatten_obs(self, obs_raw):
         """Convert image observation to vectors"""
@@ -62,4 +64,9 @@ class MiniGridEnv(RawEnvironment):
         observations = np.append(image.reshape(-1), direction)
         return observations
 
-
+    def _get_obs(self, obs_raw):
+        if self.rgb_img_partial_obs_wrapper:
+            obs = obs_raw['image']
+        else:
+            obs = self.flatten_obs(obs_raw)
+        return obs

@@ -4,36 +4,36 @@ from copy import deepcopy
 from xuance.common import get_configs, recursive_dict_update
 from xuance.environment import make_envs
 from xuance.torch.utils.operations import set_seed
-from xuance.torch.agents import PG_Agent
+from xuance.torch.agents import DreamerV2_Agent
 
 
 def parse_args():
-    parser = argparse.ArgumentParser("Example of XuanCe: PG for MiniGrid.")
+    parser = argparse.ArgumentParser("Example of XuanCe: Dreamerv2 for MiniGrid.")
     parser.add_argument("--env-id", type=str, default="MiniGrid-Empty-5x5-v0")
-    # parser.add_argument("--test", type=int, default=0)
-    # parser.add_argument("--benchmark", type=int, default=1)
+    parser.add_argument("--test", type=int, default=0)
+    parser.add_argument("--benchmark", type=int, default=1)
 
     parser.add_argument("--device", type=str, default="cpu")
 
-    parser.add_argument("--test", type=int, default=1)
-    parser.add_argument("--render", type=bool, default=True)
-    parser.add_argument("--render_mode", type=str, default='human')
-    parser.add_argument("--parallels", type=int, default=1)
-    parser.add_argument("--test_episode", type=int, default=1)
-    parser.add_argument("--benchmark", type=int, default=0)
+    # parser.add_argument("--test", type=int, default=1)
+    # parser.add_argument("--render", type=bool, default=True)
+    # parser.add_argument("--render_mode", type=str, default='human')
+    # parser.add_argument("--parallels", type=int, default=1)
+    # parser.add_argument("--test_episode", type=int, default=1)
+    # parser.add_argument("--benchmark", type=int, default=0)
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     parser = parse_args()
-    configs_dict = get_configs(file_dir="pg_configs/pg_minigrid.yaml")
+    configs_dict = get_configs(file_dir="dreamerv2_configs/dreamerv2_minigrid.yaml")
     configs_dict = recursive_dict_update(configs_dict, parser.__dict__)
     configs = argparse.Namespace(**configs_dict)
 
     set_seed(configs.seed)
     envs = make_envs(configs)
-    Agent = PG_Agent(config=configs, envs=envs)
+    Agent = DreamerV2_Agent(config=configs, envs=envs)
 
     train_information = {"Deep learning toolbox": configs.dl_toolbox,
                          "Calculating device": configs.device,
