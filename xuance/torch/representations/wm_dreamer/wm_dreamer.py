@@ -39,8 +39,8 @@ class WorldModel_DreamerV2(Module):
         if config.rssm_type == 'continuous':
             stoch_size = config.rssm_info['stoch_size']
         elif config.rssm_type == 'discrete':
-            category_size = config.rssm_info['category_size']  # 20
-            class_size = config.rssm_info['class_size']  # 20
+            category_size = config.rssm_info['category_size']  # 32
+            class_size = config.rssm_info['class_size']  # 32
             stoch_size = category_size * class_size  # calculate stochastic state size
 
         embedding_size = config.embedding_size  # 200

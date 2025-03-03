@@ -75,7 +75,7 @@ class ObsDecoder(nn.Module):
         conv2_shape = conv_out_shape(conv1_shape, 0, k, 2)
         conv3_shape = conv_out_shape(conv2_shape, 0, k, 2)
         conv4_shape = conv_out_shape(conv3_shape, 0, k, 2)
-        self.conv_shape = (8 * d, *conv4_shape)  # (384, 3, 3)
+        self.conv_shape = (8 * d, *conv4_shape)  # (384, 1, 1)
 
         if embed_size == np.prod(self.conv_shape).item():
             self.linear = nn.Identity()
