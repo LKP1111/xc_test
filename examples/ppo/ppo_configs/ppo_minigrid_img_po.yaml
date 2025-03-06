@@ -14,14 +14,24 @@ agent: "PPO_Clip"  # choice: PPO_Clip, PPO_KL
 env_name: "MiniGrid"
 env_id: "MiniGrid-Empty-5x5-v0"
 env_seed: 1
-RGBImgPartialObsWrapper: False
+
+# only use when rgb_img_wrapper is enabled
+num_stack: 4
+img_size: [16, 16]
+#RGBImgPartialObsWrapper: False
+RGBImgPartialObsWrapper: True
 ImgObsWrapper: False
 vectorize: "DummyVecEnv"
 learner: "PPOCLIP_Learner"
 policy: "Categorical_AC"  # choice: Gaussian_AC for continuous actions, Categorical_AC for discrete actions.
-representation: "Basic_MLP"
+#representation: "Basic_MLP"
+representation: "AC_CNN_Atari"  # Basic_CNN do not have the last fc_layer
+# Good HyperParameters for Atari Games, Do not change them.
+filters: [32, 64, 64]
+kernels: [4, 6, 3]
+strides: [2, 3, 1]
+fc_hidden_sizes: [512, ]  # fully connected layer hidden sizes.
 
-representation_hidden_size: [256,]
 actor_hidden_size: [256,]
 critic_hidden_size: [256,]
 activation: "leaky_relu"

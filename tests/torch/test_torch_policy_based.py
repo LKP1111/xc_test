@@ -10,6 +10,12 @@ test_mode = False
 
 
 class TestValueBaseAlgo(unittest.TestCase):
+
+    def test_npg_discrete(self):
+        args = Namespace(dl_toolbox='torch', device=device, running_steps=n_steps, test_mode=test_mode)
+        runner = get_runner(method="npg", env='classic_control', env_id='CartPole-v1', parser_args=args)
+        runner.run()
+
     def test_pg_continuous(self):
         args = Namespace(dl_toolbox='torch', device=device, running_steps=n_steps, test_mode=test_mode)
         runner = get_runner(method="pg", env='classic_control', env_id='Pendulum-v1', parser_args=args)

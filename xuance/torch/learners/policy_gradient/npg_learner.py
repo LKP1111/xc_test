@@ -91,6 +91,7 @@ class NPG_Learner(Learner):
         fisher_information = torch.zeros((param_num, param_num)).to(self.device)
         _, prob, _ = self.policy(obs)
         log_probs = prob.log_prob(act)
+        """d log_probs.sum() / d params"""
         score = torch.autograd.grad(log_probs.sum(), params, retain_graph=True)[0]
         score = score.view(-1).to(self.device)
         fisher_information += torch.outer(score, score) * log_probs.sum().item()

@@ -9,16 +9,28 @@ from xuance.torch.agents import PPOCLIP_Agent
 
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: PPO for MiniGrid.")
+    parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--env-id", type=str, default="MiniGrid-Empty-5x5-v0")
+    parser.add_argument("--running-steps", type=int, default=100_000)
+    # parser.add_argument("--env-id", type=str, default="MiniGrid-DoorKey-6x6-v0")
+    # parser.add_argument("--running-steps", type=int, default=1_000_000)
+
     parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--benchmark", type=int, default=1)
+
+    # parser.add_argument("--test", type=int, default=1)
+    # parser.add_argument("--render", type=bool, default=True)
+    # parser.add_argument("--render_mode", type=str, default='human')
+    # parser.add_argument("--parallels", type=int, default=1)
+    # parser.add_argument("--test_episode", type=int, default=1)
+    # parser.add_argument("--benchmark", type=int, default=0)
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     parser = parse_args()
-    configs_dict = get_configs(file_dir="ppo_configs/ppo_minigrid.yaml")
+    configs_dict = get_configs(file_dir="ppo_configs/ppo_minigrid_img_po.yaml")
     configs_dict = recursive_dict_update(configs_dict, parser.__dict__)
     configs = argparse.Namespace(**configs_dict)
 

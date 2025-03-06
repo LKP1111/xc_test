@@ -30,9 +30,9 @@ class ObsEncoder(nn.Module):
             self.conv_out_shape = self.layers(test_x).shape[1:]  # save for obs_decoder_init
         conv_out_size = np.prod(self.conv_out_shape).item()
         if embedding_size == conv_out_size:
-            self.fc_1 = nn.Identity()
+            self.linear = nn.Identity()
         else:
-            self.fc_1 = nn.Linear(conv_out_size, embedding_size)
+            self.linear = nn.Linear(conv_out_size, embedding_size)
 
     def forward(self, obs):
         """permute added: (~, h, w, c) -> (~, c, h, w)"""
@@ -42,9 +42,9 @@ class ObsEncoder(nn.Module):
 
         batch_shape = obs.shape[:-3]
         img_shape = obs.shape[-3:]
-        embed = self.convolutions(obs.reshape(-1, *img_shape))
+        embed = self.layers(obs.reshape(-1, *img_shape))
         embed = torch.reshape(embed, (*batch_shape, -1))
-        embed = self.fc_1(embed)
+        embed = self.linear(embed)
         return embed
 
 
@@ -84,11 +84,13 @@ class ObsDecoder(nn.Module):
     def forward(self, x):
         batch_shape = x.shape[:-1]
         embed_size = x.shape[-1]
-        squeezed_size = np.prod(batch_shape).item()
+        squeezed_size = np.prod(batch_shape).item()  # seq * batch * envs = 1536
         x = x.reshape(squeezed_size, embed_size)
+        # -> (seq * batch * envs, inp_dim)
         x = self.linear(x)
-        x = torch.reshape(x, (squeezed_size, *self.convt_in_shape))
-        x = self.decoder(x)  # (3136, 3, 56, 56)
+        # -> (seq * batch * envs, inp_dim, 1, 1)
+        x = torch.reshape(x, x.shape + (1, 1))
+        x = self.layers(x)
         """permute"""
         num_dims = len(x.shape)
         new_order = tuple(range(num_dims))[:-3] + (num_dims - 2, num_dims - 1, num_dims - 3)
