@@ -12,7 +12,9 @@ from xuance.torch.agents import PPOCLIP_Agent
 
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: PPO for Atari.")
-    parser.add_argument("--env-id", type=str, default="ALE/Breakout-v5")
+    # parser.add_argument("--env-id", type=str, default="ALE/Breakout-v5")
+    parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
+    parser.add_argument("--running_steps", type=int, default=30_000_000)  # 30M, ~=4h
 
     """benchmark"""
     # parser.add_argument("--test", type=int, default=0)
@@ -84,8 +86,8 @@ if __name__ == "__main__":
                 return make_envs(configs)
 
 
-            # Agent.load_model(path=Agent.model_dir_load)
-            Agent.load_model(path=Agent.model_dir_load, model='seed_1_2025_0302_145052(score-61, 5-lives)')
+            Agent.load_model(path=Agent.model_dir_load)
+            # Agent.load_model(path=Agent.model_dir_load, model='seed_1_2025_0302_145052(breakout-v5)(score-61, 5-lives)')
             scores = Agent.test(env_fn, configs.test_episode)
             print(f"Mean Score: {np.mean(scores)}, Std: {np.std(scores)}")
             print("Finish testing.")
