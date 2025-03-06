@@ -91,7 +91,7 @@ horizon: 15  # imagine_horizon
 seq_len: 50  # observe_len
 lambda_: 0.95
 rssm_type: 'discrete'
-embedding_size: 200
+embedding_size: 600
 rssm_node_size: 600
 rssm_info:
   deter_size: 600
@@ -105,14 +105,14 @@ obs_encoder:
   node_size: 600
   dist: None
   activation: "elu"
-  kernel: 3
+  kernels: [4, 4, 4, 4]
   depth: 48
 obs_decoder:
   layers: 4
   node_size: 600
   dist: 'normal'
   activation: "elu"
-  kernel: 3
+  kernels: [5, 5, 6, 6]
   depth: 48
 reward:
   layers: 4

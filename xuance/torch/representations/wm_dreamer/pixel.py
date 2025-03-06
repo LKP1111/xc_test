@@ -12,27 +12,27 @@ class ObsEncoder(nn.Module):
         """
         super(ObsEncoder, self).__init__()
         self.shape = (input_shape[2], input_shape[0], input_shape[1])
-        # activation = info['activation']
-        activation = nn.ELU
-        d = info['depth']  # 48
-        k = info['kernel']  # 3
-        self.k = k
-        self.d = d
-        self.convolutions = nn.Sequential(
-            nn.Conv2d(self.shape[0], d, k, 2),
-            activation(),
-            nn.Conv2d(d, 2 * d, k, 2),
-            activation(),
-            nn.Conv2d(2 * d, 4 * d, k, 2),
-            activation(),
-            nn.Conv2d(4 * d, 8 * d, k, 2),
-            activation(),
-        )
-        """there is no specific embed_size in official code?"""
-        if embedding_size == self.embed_size:
+        act = nn.ELU
+        depth, kernels = info['depth'], info['kernels']
+        layers = []
+        for i, kernel in enumerate(kernels):
+            if i == 0:
+                inp_dim = self.shape[0]
+            else:
+                inp_dim = 2 ** (i - 1) * depth
+            cur_depth = 2 ** i * depth
+            layers.append(nn.Conv2d(inp_dim, cur_depth, kernel, 2))
+            layers.append(act())
+        self.layers = nn.Sequential(*layers)
+        # """there is no specific embed_size in official code?"""
+        with torch.no_grad():
+            test_x = torch.randn(self.shape).unsqueeze(0)
+            self.conv_out_shape = self.layers(test_x).shape[1:]  # save for obs_decoder_init
+        conv_out_size = np.prod(self.conv_out_shape).item()
+        if embedding_size == conv_out_size:
             self.fc_1 = nn.Identity()
         else:
-            self.fc_1 = nn.Linear(self.embed_size, embedding_size)
+            self.fc_1 = nn.Linear(conv_out_size, embedding_size)
 
     def forward(self, obs):
         """permute added: (~, h, w, c) -> (~, c, h, w)"""
@@ -47,49 +47,39 @@ class ObsEncoder(nn.Module):
         embed = self.fc_1(embed)
         return embed
 
-    @property
-    def embed_size(self):
-        conv1_shape = conv_out_shape(self.shape[1:], 0, self.k, 2)
-        conv2_shape = conv_out_shape(conv1_shape, 0, self.k, 2)
-        conv3_shape = conv_out_shape(conv2_shape, 0, self.k, 2)
-        conv4_shape = conv_out_shape(conv3_shape, 0, self.k, 2)
-        embed_size = int(8 * self.d * np.prod(conv4_shape).item())
-        return embed_size
 
 class ObsDecoder(nn.Module):
-    def __init__(self, output_shape, embed_size, info):
+    def __init__(self, output_shape, modelstate_size, convt_in_shape, info):
         """
-        :param output_shape: tuple containing shape of output obs
-        :param embed_size: the size of input vector, for dreamerv2 : modelstate 
+        :param output_shape: tuple containing shape of output obs (H, W, C)
+        :param embed_size: the size of input vector, for dreamerv2 : modelstate
+        :param convt_in: the size of input vector of convt
         """
         super(ObsDecoder, self).__init__()
-        """save the shape of (h, w, c)"""
+        """save the shape of (h, w, c) for foward"""
         self.output_shape = output_shape
         output_shape = (output_shape[2], output_shape[0], output_shape[1])
-        c, h, w = output_shape
-        # activation = info['activation']
-        activation = nn.ELU
-        d = info['depth']
-        k = info['kernel']
-        conv1_shape = conv_out_shape(output_shape[1:], 0, k, 2)
-        conv2_shape = conv_out_shape(conv1_shape, 0, k, 2)
-        conv3_shape = conv_out_shape(conv2_shape, 0, k, 2)
-        conv4_shape = conv_out_shape(conv3_shape, 0, k, 2)
-        self.conv_shape = (8 * d, *conv4_shape)  # (384, 1, 1)
-
-        if embed_size == np.prod(self.conv_shape).item():
+        depth, kernels = info['depth'], info['kernels']
+        # self.convt_in_shape = (8 * depth, 2, 2)  # (384, 2, 2)
+        self.convt_in_shape = convt_in_shape
+        inp_dim = np.prod(self.convt_in_shape).item()
+        if modelstate_size == inp_dim:  # inp_dim: 1536
             self.linear = nn.Identity()
         else:
-            self.linear = nn.Linear(embed_size, np.prod(self.conv_shape).item())
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(8 * d, 4 * d, k, 2, output_padding=1),
-            activation(),
-            nn.ConvTranspose2d(4 * d, 2 * d, k, 2),
-            activation(),
-            nn.ConvTranspose2d(2 * d, d, k, 2, output_padding=1),
-            activation(),
-            nn.ConvTranspose2d(d, c, k, 2),
-        )
+            self.linear = nn.Linear(modelstate_size, inp_dim)
+        layers = []
+        for i, kernel in enumerate(kernels):
+            cur_depth = 2 ** (len(kernels) - i - 2) * depth
+            act = nn.ELU
+            if i == len(kernels) - 1:
+                cur_depth = output_shape[0]
+                act = None
+            if i != 0:
+                inp_dim = 2 ** (len(kernels) - (i - 1) - 2) * depth
+            layers.append(nn.ConvTranspose2d(inp_dim, cur_depth, kernel, 2))
+            if act is not None:
+                layers.append(act())
+        self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
         batch_shape = x.shape[:-1]
@@ -97,7 +87,7 @@ class ObsDecoder(nn.Module):
         squeezed_size = np.prod(batch_shape).item()
         x = x.reshape(squeezed_size, embed_size)
         x = self.linear(x)
-        x = torch.reshape(x, (squeezed_size, *self.conv_shape))
+        x = torch.reshape(x, (squeezed_size, *self.convt_in_shape))
         x = self.decoder(x)  # (3136, 3, 56, 56)
         """permute"""
         num_dims = len(x.shape)

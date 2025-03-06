@@ -33,15 +33,16 @@ class WorldModel_DreamerV2(Module):
 
         # self._model_initialize(config)  # 调用 _model_initialize 方法初始化模型 (initialize models)
         # self._optim_initialize(config)  # 调用 _optim_initialize 方法初始化优化器 (initialize optimizers)
-        obs_shape = config.obs_shape  # 从配置中获取观测形状 (get observation shape from config)
-        action_size = config.action_size  # 从配置中获取动作空间大小 (get action space size from config)
-        deter_size = config.rssm_info['deter_size']  # 从配置中获取确定性状态大小 (get deterministic state size from config)
+
+        obs_shape = config.obs_shape  # from agent env (64, 64, 3)
+        action_size = config.action_size
+        deter_size = config.rssm_info['deter_size']
         if config.rssm_type == 'continuous':
             stoch_size = config.rssm_info['stoch_size']
         elif config.rssm_type == 'discrete':
-            category_size = config.rssm_info['category_size']  # 32
-            class_size = config.rssm_info['class_size']  # 32
-            stoch_size = category_size * class_size  # calculate stochastic state size
+            category_size = config.rssm_info['category_size']
+            class_size = config.rssm_info['class_size']
+            stoch_size = category_size * class_size
 
         embedding_size = config.embedding_size  # 200
         rssm_node_size = config.rssm_node_size  # 200
@@ -65,8 +66,12 @@ class WorldModel_DreamerV2(Module):
             self.device)  # 创建 DiscountModel 实例并放到指定设备上 (create DiscountModel instance and move to device)
 
         if config.pixel:  # if using pixel observations
+            """conv_in == convt_out; convt_out == conv_in"""
+            """obs_shape.permute -> conv_in.conv -> conv_out.fc -> embedding_size"""
             self.ObsEncoder = ObsEncoder(obs_shape, embedding_size, config.obs_encoder).to(self.device)
-            self.ObsDecoder = ObsDecoder(obs_shape, self.modelstate_size, config.obs_decoder).to(self.device)
+            conv_out_shape = self.ObsEncoder.conv_out_shape
+            """modelstate_size -> convt_in.convt -> convt_out.permute -> obs_shape"""
+            self.ObsDecoder = ObsDecoder(obs_shape, self.modelstate_size, conv_out_shape, config.obs_decoder).to(self.device)
         else:  # if not using pixel observations
             self.ObsEncoder = DenseModel((embedding_size,), int(np.prod(obs_shape)), config.obs_encoder).to(self.device)
             self.ObsDecoder = DenseModel(obs_shape, self.modelstate_size, config.obs_decoder).to(self.device)
