@@ -1,0 +1,178 @@
+dl_toolbox: "torch"  # The deep learning toolbox. Choices: "torch", "mindspore", "tensorlayer"
+project_name: "XuanCe_New_Algorithm"
+logger: "tensorboard"  # Choices: tensorboard, wandb.
+wandb_user_name: "your_user_name"
+render: False
+render_mode: 'rgb_array' # Choices: 'human', 'rgb_array'.
+fps: 50
+test_mode: False
+device: "cpu"
+distributed_training: False  # Whether to use multi-GPU for distributed training.
+master_port: '12355'  # The master port for current experiment when use distributed training.
+
+agent: "DreamerV3"
+env_name: "Classic Control"
+env_id: "CartPole-v1"
+env_seed: 1
+vectorize: "DummyVecEnv"
+representation: "DreamerV3WorldModel"
+learner: "DreamerV3Learner"
+policy: "DreamerV3Policy"
+runner: "DRL"
+
+# TODO world_model & actor_critic start
+
+#actor_hidden_size: [128,]
+#critic_hidden_size: [128,]
+#activation: 'silu'
+# World model
+world_model:
+  discrete_size: 32
+  stochastic_size: 32
+  kl_dynamic: 0.5
+  kl_representation: 0.1
+  kl_free_nats: 1.0
+  kl_regularizer: 1.0
+  continue_scale_factor: 1.0
+#  clip_gradients: 1000.0
+  decoupled_rssm: False
+  learnable_initial_recurrent_state: True
+
+  # Encoder
+  encoder:
+    cnn_channels_multiplier: 32
+    cnn_act: torch.nn.SiLU
+    dense_act: torch.nn.SiLU
+    mlp_layers: 2
+#    cnn_layer_norm: ${algo.cnn_layer_norm}
+#    mlp_layer_norm: ${algo.mlp_layer_norm}
+    dense_units: 512
+
+  # Recurrent model
+  recurrent_model:
+    recurrent_state_size: 512
+#    layer_norm: ${algo.mlp_layer_norm}
+    dense_units: 512
+
+  # Prior
+  transition_model:
+    hidden_size: 512
+    dense_act: torch.nn.SiLU
+#    layer_norm: ${algo.mlp_layer_norm}
+
+  # Posterior
+  representation_model:
+    hidden_size: 512
+    dense_act: torch.nn.SiLU
+#    layer_norm: ${algo.mlp_layer_norm}
+
+  # Decoder
+  observation_model:
+    cnn_channels_multiplier: 32
+    cnn_act: torch.nn.SiLU
+    dense_act: torch.nn.SiLU
+    mlp_layers: 2
+#    cnn_layer_norm: ${algo.cnn_layer_norm}
+#    mlp_layer_norm: ${algo.mlp_layer_norm}
+    dense_units: 512
+
+  # Reward model
+  reward_model:
+    dense_act: torch.nn.SiLU
+    mlp_layers: 2
+#    layer_norm: ${algo.mlp_layer_norm}
+    dense_units: 512
+    bins: 255  # ?????
+
+  # Discount model
+  discount_model:
+    learnable: True
+    dense_act: torch.nn.SiLU
+    mlp_layers: 2
+#    layer_norm: ${algo.mlp_layer_norm}
+    dense_units: 512
+
+  # World model optimizer
+  optimizer:
+    lr: 1e-4
+    eps: 1e-8
+    weight_decay: 0
+
+# Actor
+actor:
+  cls: sheeprl.algos.dreamer_v3.agent.Actor
+  ent_coef: 3e-4
+  min_std: 0.1
+  max_std: 1.0
+  init_std: 2.0
+  dense_act: torch.nn.SiLU
+  mlp_layers: 2
+#  layer_norm: ${algo.mlp_layer_norm}
+  dense_units: 512
+#  clip_gradients: 100.0
+  unimix: 0.01
+  action_clip: 1.0
+
+  # Disttributed percentile model (used to scale the values)
+  moments:
+    decay: 0.99
+    max: 1.0
+    percentile:
+      low: 0.05
+      high: 0.95
+
+  # Actor & Critic optimizer
+#  optimizer:
+#    lr: 8e-5
+#    eps: 1e-5
+#    weight_decay: 0
+
+# Critic
+critic:
+  dense_act: torch.nn.SiLU
+  mlp_layers: 2
+  layer_norm: ${algo.mlp_layer_norm}
+  dense_units: 512
+  per_rank_target_network_update_freq: 1  # TODO
+  tau: 0.02  # TODO
+  bins: 255
+#  clip_gradients: 100.0
+
+
+# xc_style start
+model_learning_rate: 0.0001  # 1e-4
+actor_learning_rate: 0.00008  # 8e-5
+critic_learning_rate: 0.00008  # 8e-5
+# xc_style end
+# TODO world_model & actor_critic end
+
+seed: 1
+parallels: 4
+buffer_size: 1000000
+#batch_size: 256
+#learning_rate: 0.001
+#gamma: 0.99
+
+#start_greedy: 0.5
+#end_greedy: 0.01
+#decay_step_greedy: 200000
+#sync_frequency: 50
+#training_frequency: 1
+replay_ratio: 1  # gradient_step / replay_step
+running_steps: 200000
+start_training: 1024
+
+use_grad_clip: True  # gradient normalization
+grad_clip_norm: 100.0
+
+use_actions_mask: False
+use_obsnorm: True
+use_rewnorm: True
+obsnorm_range: 5
+rewnorm_range: 5
+
+test_steps: 10000
+eval_interval: 20000
+test_episode: 3
+log_dir: "./logs/dreamerv3/"
+model_dir: "./models/dreamerv3/"
