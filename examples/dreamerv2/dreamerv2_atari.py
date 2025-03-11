@@ -9,11 +9,12 @@ from xuance.torch.agents import DreamerV2_Agent
 
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: Dreamerv2 for Atari.")
-    parser.add_argument("--env-id", type=str, default="ALE/Breakout-v5")
+    # parser.add_argument("--env-id", type=str, default="ALE/Breakout-v5")
+    parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
     parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--benchmark", type=int, default=1)
 
-    parser.add_argument("--running_steps", type=int, default=10_000_000)  # 10M
+    parser.add_argument("--running_steps", type=int, default=30_000_000)  # 10M
     """test & render"""
     # parser.add_argument("--test", type=int, default=1)
     # parser.add_argument("--parallels", type=int, default=1)

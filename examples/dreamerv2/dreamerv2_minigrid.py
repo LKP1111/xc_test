@@ -10,10 +10,10 @@ from xuance.torch.agents import DreamerV2_Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: Dreamerv2 for MiniGrid.")
     parser.add_argument("--env-id", type=str, default="MiniGrid-Empty-5x5-v0")
-    parser.add_argument("--running-steps", type=int, default=100_000)
+    parser.add_argument("--running-steps", type=int, default=1_000_000)  # 20it/s, 160step/s, 10min
     # parser.add_argument("--env-id", type=str, default="MiniGrid-DoorKey-6x6-v0")
-    # parser.add_argument("--running-steps", type=int, default=1_000_000)
-    parser.add_argument("--device", type=str, default="cpu")
+    # parser.add_argument("--running-steps", type=int, default=10_000_000)
+    parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--benchmark", type=int, default=1)
 

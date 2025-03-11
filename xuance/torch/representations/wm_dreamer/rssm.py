@@ -70,6 +70,11 @@ class RSSM(nn.Module, RSSMUtils): # 定义 RSSM 类，继承自 nn.Module (PyTor
         #     print()
         # if torch.sum(torch.isnan(self.fc_embed_state_action[0].weight)).item() > 0:
         #     print()
+        """
+        prev_rssm_state take prev_action -> rssm_state
+        if terminates after the prev_action, then the prev_rssm_state and prev_action shold be set to zero
+        prev_rssm_state *= noterm, prev_action *= noterm
+        """
         state_action_embed = self.fc_embed_state_action(torch.cat([prev_rssm_state.stoch*nonterms, prev_action],dim=-1))
         deter_state = self.rnn(state_action_embed, prev_rssm_state.deter*nonterms)
         if self.rssm_type == 'discrete':
@@ -133,7 +138,7 @@ class RSSM(nn.Module, RSSMUtils): # 定义 RSSM 类，继承自 nn.Module (PyTor
         priors = [] # 初始化列表用于存储先验 RSSM 状态
         posteriors = [] # 初始化列表用于存储后验 RSSM 状态
         for t in range(seq_len): # 循环 seq_len (序列长度) 次
-            prev_action = action[t]*nonterms[t] # 获取当前时间步的动作，并与 nonterms 相乘处理 episode 终止
+            prev_action = action[t]*nonterms[t]  # TODO 显然也可以放在observe里更新   # 获取当前时间步的动作，并与 nonterms 相乘处理 episode 终止
             prior_rssm_state, posterior_rssm_state = self.rssm_observe(obs_embed[t], prev_action, nonterms[t], prev_rssm_state) # 使用 rssm_observe 方法根据当前观测嵌入 (obs_embed), 上一步动作 (prev_action), nonterms 和上一步状态 (prev_rssm_state) 更新状态，得到先验和后验状态
             priors.append(prior_rssm_state) # 将先验状态添加到列表
             posteriors.append(posterior_rssm_state) # 将后验状态添加到列表

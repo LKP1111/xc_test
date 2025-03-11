@@ -498,9 +498,17 @@ class DreamerV2DISPolicy(Module):
         value_dist.loc = value_dist.loc.to(self.device)
         # value_dist.scale.to(self.device)  # 不赋值就不行
         value_dist.scale = value_dist.scale.to(self.device)
-        # for actor_loss: imag_reward, imag_value, discount_arr, act_log_probs, act_ent
-        # for critic_loss: imag_modelstate, discount, lambda_returns
-        return act_log_probs, act_ent, imag_value, V_lambda, value_dist
+        # for actor_loss: V_lambda(imag_reward, imag_value, discount_arr), act_log_probs, act_ent
+        # for critic_loss: value_dist(imag_modelstate), V_lambda
+        """
+        seq_shift: 
+        dreamer-ref: replace the first to ones ???(cur)
+        dreamer-torch: discard last and add ones to head (gamma[i] should multiply with variables in i + 1)
+        """
+        # discount_weights = torch.cat([torch.ones_like(discount_arr[:1]), discount_arr[1:]], dim=0)  # dreamer-ref
+        discount_weights = torch.cat([torch.ones_like(discount_arr[:1]), discount_arr[:-1]], dim=0)  # dreamer-torch
+        discount_weights = torch.cumprod(discount_arr[:-1], 0)
+        return act_log_probs, act_ent, imag_value, V_lambda, value_dist, discount_weights.detach()
 
     def soft_update(self, tau=0.005):
         for ep, tp in zip(self.critic_1.parameters(), self.target_critic_1.parameters()):

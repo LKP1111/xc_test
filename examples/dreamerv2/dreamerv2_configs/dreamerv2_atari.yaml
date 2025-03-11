@@ -19,10 +19,10 @@ frame_skip: 1  # frame skip trick
 noop_max: 30  # Do no-op action for a number of steps in [1, noop_max].
 
 # Good HyperParameters for Atari Games, Do not change them.
-filters: [32, 64, 64]
-kernels: [8, 4, 3]
-strides: [4, 2, 1]
-fc_hidden_sizes: [512, ]  # fully connected layer hidden sizes.
+#filters: [32, 64, 64]
+#kernels: [8, 4, 3]
+#strides: [4, 2, 1]
+#fc_hidden_sizes: [512, ]  # fully connected layer hidden sizes.
 
 # --------------------
 agent: "DreamerV2"
@@ -36,7 +36,7 @@ policy: "Categorical_DreamerV2"
 representation: "WorldModel_DreamerV2"
 runner: "DRL"
 
-representation_hidden_size: [128,]
+#representation_hidden_size: [128,]
 actor_hidden_size: [128,]
 critic_hidden_size: [128,]
 activation: 'elu'
@@ -81,8 +81,8 @@ rewnorm_range: 5
 test_steps: 10000
 eval_interval: 100000
 test_episode: 3
-log_dir: "./logs/dreamerv2/"
-model_dir: "./models/dreamerv2/"
+log_dir: "./logs/dreamerv2/atari"
+model_dir: "./models/dreamerv2/atari"
 
 # World Model start  (TODO unique)
 discount_: 0.995
@@ -161,8 +161,8 @@ actor_grad: 'reinforce'
 actor_grad_mix: 0.0
 # rho = 1 and ita = 1e-3 for Atari; rho = 0 and ita = 1e-4 for continuous control
 ita: 0.001
-rho: 1.0
-#rho: 0.0
+#rho: 1.0
+rho: 0.0
 
 
 # ----------------------------------------------------

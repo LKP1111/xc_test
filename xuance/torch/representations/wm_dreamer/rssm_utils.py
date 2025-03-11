@@ -59,11 +59,14 @@ class RSSMUtils(object): # 定义 RSSMUtils 类，用于提供处理 RSSM 状态
     def get_dist(self, rssm_state): # 定义方法 get_dist，根据 RSSM 状态获取概率分布 (Distribution) 对象
         if self.rssm_type == 'discrete': # 如果是离散型 RSSM
             shape = rssm_state.logit.shape # 获取 logit 的形状
-            logit = torch.reshape(rssm_state.logit, shape = (*shape[:-1], self.category_size, self.class_size)) # 将 logit 的形状重塑为 (*shape[:-1], category_size, class_size)，以便创建 OneHotCategoricalStraightThrough 分布
+            """added clip to avoid inf kl divergence"""
+            eps = 1e-7
+            logit = torch.reshape(torch.clamp(rssm_state.logit, min=eps, max=1-eps),
+                                  shape = (*shape[:-1], self.category_size, self.class_size)) # 将 logit 的形状重塑为 (*shape[:-1], category_size, class_size)，以便创建 OneHotCategoricalStraightThrough 分布
             return td.Independent(td.OneHotCategoricalStraightThrough(logits=logit), 1) # 返回 Independent (独立分布)，包裹 OneHotCategoricalStraightThrough (One-Hot 直通分类分布)，用于离散状态的采样和梯度传播，参数 logits (对数几率) 为重塑后的 logit，事件维度为 1
         elif self.rssm_type == 'continuous': # 如果是连续型 RSSM
             return td.independent.Independent(td.Normal(rssm_state.mean, rssm_state.std), 1) # 返回 Independent (独立分布)，包裹 Normal (正态分布)，用于连续状态的采样，参数 mean (均值) 和 std (标准差) 来自 RSSM 状态，事件维度为 1
-
+    # TODO
     def get_stoch_state(self, stats): # 定义方法 get_stoch_state，从模型的输出统计量 (stats) 中获取随机状态 (stochastic state)
         if self.rssm_type == 'discrete': # 如果是离散型 RSSM
             logit = stats['logit'] # 从 stats 字典中获取 'logit'

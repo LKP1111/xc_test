@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
         train_steps = configs.running_steps // configs.parallels
         eval_interval = configs.eval_interval // configs.parallels
-        test_episode = configs.test_episode
+        test_episode = configs.test_episode  # iter
         num_epoch = int(train_steps / eval_interval)
 
         test_scores = Agent.test(env_fn, test_episode)

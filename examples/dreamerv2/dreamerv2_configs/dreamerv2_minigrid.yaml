@@ -30,11 +30,13 @@ activation: "elu"
 
 seed: 79811
 parallels: 8
+#parallels: 1
 running_steps: 100000
 horizon_size: 100000  # the horizon size for an environment, buffer_size = horizon_size * parallels.
 #n_epochs: 16
 #n_minibatch: 8
-n_epochs: 1
+#n_epochs: 1
+n_epochs: 5
 n_minibatch: 1
 learning_rate_model: 0.0002
 learning_rate_actor: 0.00004
@@ -56,10 +58,10 @@ use_grad_clip: True  # gradient normalization
 clip_type: 1  # Gradient clip for Mindspore: 0: ms.ops.clip_by_value; 1: ms.nn.ClipByNorm()
 grad_clip_norm: 100.0
 use_actions_mask: False
-use_obsnorm: True
+use_obsnorm: True  # important for all obs!!!
 use_rewnorm: True
-obsnorm_range: 5
-rewnorm_range: 5
+obsnorm_range: 1
+rewnorm_range: 1
 
 test_steps: 10000
 eval_interval: 1000
@@ -86,14 +88,12 @@ rssm_info:
 pixel: True
 obs_encoder:
   layers: 4
-  node_size: 200
   dist: None
   activation: "elu"
   kernels: [4, 4, 4, 4]
   depth: 48
 obs_decoder:
   layers: 4
-  node_size: 200
   dist: 'normal'
   activation: "elu"
   kernels: [5, 5, 6, 6]
@@ -121,8 +121,8 @@ kl:
 # World Model end
 
 # TODO
-training_frequency: 50
-#training_frequency: 16
+#training_frequency: 50
+training_frequency: 16
 #batch_size: 50
 batch_size: 8  # batch_size * parallels = total_batch, 8 * 8 = 64
 

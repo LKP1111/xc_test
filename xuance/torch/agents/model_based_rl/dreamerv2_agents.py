@@ -140,6 +140,8 @@ class DreamerV2_Agent(OnPolicyAgent):
             for start in range(0, self.buffer_size, self.batch_size):
                 samples = self.memory.sample_traj(self.config.batch_size, self.config.seq_len)
                 obs, act, rew, term = samples
+                # if _ == 4:  # kl_loss -> inf  # TODO
+                #     print()
                 train_info = self.learner.update(
                     obs=obs,
                     act=act,
@@ -153,13 +155,13 @@ class DreamerV2_Agent(OnPolicyAgent):
         """prev_rssm_states get prev_done through prev_actions"""
         prev_rssm_states = [self.representation.RSSM.init_rssm_state(1, self.device) for _ in range(self.envs.num_envs)]
         prev_actions = np.zeros([self.envs.num_envs, self.envs.action_space.n])
-        prev_done = np.zeros(self.envs.num_envs, dtype=np.bool8)
+        prev_done = np.ones(self.envs.num_envs, dtype=np.bool8)
         for _ in tqdm(range(train_steps)):
             step_info = {}
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)  # obs: (10, ~)
             with torch.no_grad():
-                policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states, self.envs.num_envs)
+                policy_out = self.dreamer_action(obs, prev_actions, np.logical_not(prev_done), prev_rssm_states, self.envs.num_envs)
             one_hot_acts, rssm_states = policy_out['actions'], policy_out['rssm_states']
             # if not hasattr(self.config, 'action') or not self.config.action == "one-hot":
             acts = np.array(one_hot_acts).argmax(axis=1)
@@ -167,14 +169,19 @@ class DreamerV2_Agent(OnPolicyAgent):
             """
             no need to store value and log_p, because the full traj can be imagined by single obs
             (act, rew, next_obs, term)
+            normalization of next_obs & rew
             """
-            self.memory.store(next_obs, acts, self._process_reward(rewards), None, (terminals | truncations), None)
+            self.memory.store(self._process_observation(next_obs), acts,
+                              self._process_reward(rewards),
+                              None, np.logical_or(terminals, truncations), None)
             # 至少存了 seq_len 的数据
             if _ >= self.config.seq_len and _ % self.config.training_frequency == 0:
+                # if _ == 100:  # kl_loss -> inf  # TODO
+                #     print()
                 train_info = self.train_epochs(n_epochs=self.n_epochs)
                 self.log_infos(train_info, self.current_step)
 
-            if self.learner.iterations % self.config.soft_update_frequency == 0:
+            if _ > 0 and _ % self.config.soft_update_frequency == 0:
                 self.policy.soft_update(tau=self.config.tau)
 
             self.returns = self.gamma * self.returns + rewards  # discounted return
@@ -182,7 +189,7 @@ class DreamerV2_Agent(OnPolicyAgent):
             """update prev variables!!!!!!"""
             prev_rssm_states = deepcopy(rssm_states)
             prev_actions = deepcopy(one_hot_acts)
-            prev_done = (terminals | truncations)
+            prev_done = np.logical_or(terminals, truncations)
             for i in range(self.n_envs):
                 if terminals[i] or truncations[i]:
                     """reset rssm_state and prev_action when env terminate"""
@@ -220,12 +227,12 @@ class DreamerV2_Agent(OnPolicyAgent):
         """prev_rssm_states get prev_done through prev_actions"""
         prev_rssm_states = [self.representation.RSSM.init_rssm_state(1, self.device) for _ in range(num_envs)]
         prev_actions = np.zeros([num_envs, test_envs.action_space.n])
-        prev_done = np.zeros(num_envs, dtype=np.bool8)
+        prev_done = np.ones(num_envs, dtype=np.bool8)
         while current_episode < test_episodes:
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)
             with torch.no_grad():
-                policy_out = self.dreamer_action(obs, prev_actions, ~prev_done, prev_rssm_states, num_envs)
+                policy_out = self.dreamer_action(obs, prev_actions, np.logical_not(prev_done), prev_rssm_states, num_envs)
             one_hot_acts, rssm_states = policy_out['actions'], policy_out['rssm_states']
             acts = np.array(one_hot_acts).argmax(axis=1)
             next_obs, rewards, terminals, truncations, infos = test_envs.step(acts)
@@ -237,7 +244,7 @@ class DreamerV2_Agent(OnPolicyAgent):
             """update prev variables!!!!!!"""
             prev_rssm_states = deepcopy(rssm_states)
             prev_actions = deepcopy(one_hot_acts)
-            prev_done = (terminals | truncations)
+            prev_done = np.logical_or(terminals, truncations)
             for i in range(num_envs):
                 if terminals[i] or truncations[i]:
                     """reset rssm_state and prev_action when env terminate"""

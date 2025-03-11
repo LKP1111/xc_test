@@ -111,15 +111,8 @@ class WorldModel_DreamerV2(Module):
                             actor: nn.Module,
                             target_critic: nn.Module,
                             prev_rssm_state):
-        # with torch.no_grad(): # 在无梯度计算的环境下 (in no gradient calculation context)
-        #     """转化为 batch * seq 大小的单个批次的数据, 对每个后验都进行 imagine 再更新"""
-        #     batched_posterior = self.RSSM.rssm_detach(self.RSSM.rssm_seq_to_batch(posterior, self.batch_size, self.seq_len-1)) # 将序列后验状态转换为批次形式并分离计算图 (convert sequence posterior state to batch form and detach from computation graph)
-        #
-        # with FreezeParameters(self.world_list): # 在冻结世界模型参数的情况下 (in frozen world model parameters context)
-        #     imag_rssm_states, imag_log_prob, policy_entropy = self.RSSM.rollout_imagination(self.horizon, self.ActionModel, batched_posterior) # 使用想象力 (imagination) rollout 得到想象轨迹 (imagination trajectory)
-        # rollout_imagination(obs_seq_batch, act_seq_batch, noterm_seq_batch)
         """(horizon, n_envs * seq * batch, ~)"""
-        prior, imag_act_log_probs, act_ent = self.RSSM.rollout_imagination(self.horizon, actor, prev_rssm_state)
+        prior, act_log_probs, act_ent = self.RSSM.rollout_imagination(self.horizon, actor, prev_rssm_state)
 
         with torch.no_grad():
             imag_modelstate = self.RSSM.get_model_state(prior)
@@ -135,7 +128,7 @@ class WorldModel_DreamerV2(Module):
         imag_discount_dist = self.DiscountModel(imag_modelstate)
         discount_arr = self.discount * torch.round(imag_discount_dist.base_dist.probs)
         return {
-            "for_actor": (imag_reward, imag_value.detach(), discount_arr.detach(), imag_act_log_probs, act_ent),
+            "for_actor": (imag_reward, imag_value.detach(), discount_arr.detach(), act_log_probs, act_ent),
             "for_critic": imag_modelstate
         }
 

@@ -31,6 +31,7 @@ class DreamerV2_Learner(Learner):
         #                                                 start_factor=1.0,
         #                                                 end_factor=self.end_factor_lr_decay,
         #                                                 total_iters=self.config.running_steps)}
+        self.iterations = 0
         self.n_actions = self.policy.action_dim
 
     def update(self, **samples):
@@ -74,18 +75,14 @@ class DreamerV2_Learner(Learner):
 
         """seq_shift: obs_seq_batch[:-1], rew_seq_batch[1:], noterm_seq_batch[1:]"""
         obs_loss = -torch.mean(obs_dist.log_prob(obs_seq_batch[:-1]))
-        rew_loss = -torch.mean(rew_dist.log_prob(rew_seq_batch[1:]))
-        noterm_loss = -torch.mean(noterm_dist.log_prob(noterm_seq_batch[1:]))
+        rew_loss = -torch.mean(rew_dist.log_prob(rew_seq_batch[:-1]))  # after obs
+        noterm_loss = -torch.mean(noterm_dist.log_prob(noterm_seq_batch[:-1]))
         alpha = self.config.kl['kl_balance_scale']
         kl_div = torch.distributions.kl.kl_divergence
         """kl_loss checked"""
-        kl_loss = torch.mean(
-            alpha * kl_div(prior_dist, post_dist_detach) + (1 - alpha) * kl_div(prior_dist_detach, post_dist)
-        )
-        # kl_div = torch.nn.functional.kl_div
-        # eps = 1e-8
-        # kl_loss = (alpha * kl_div(prior.stoch + eps, post.stoch.detach() + eps) +
-        #            (1 - alpha) * kl_div(prior.stoch.detach() + eps, post.stoch + eps))
+        kl_l = torch.mean(kl_div(prior_dist, post_dist_detach))
+        kl_r = torch.mean(kl_div(prior_dist_detach, post_dist))
+        kl_loss = alpha * kl_l + (1 - alpha) * kl_r
         rew_scale = self.config.loss_scale['reward']
         discount_scale = self.config.loss_scale['discount']
         kl_scale = self.config.loss_scale['kl']
@@ -95,63 +92,77 @@ class DreamerV2_Learner(Learner):
         if self.use_grad_clip:
             torch.nn.utils.clip_grad_norm_(self.policy.model_parameters, self.grad_clip_norm)
         self.optimizer['model'].step()
+
         """
         actor_critic learning
         actor_loss = -rho * act_dist.log_prob(act_batch) * sg(V_lambda - target_v_dist.sample()) -
                 (1 - rho) * V_lambda + act_dist.entropy()
         critic_loss = -v_dist.log_prob(sg(V_lambda))
         """
-        act_log_probs, act_ent, imag_value, V_lambda, value_dist = self.policy.actor_critic_forward(post)
+        act_log_probs, act_ent, imag_value, V_lambda, value_dist, weights \
+            = self.policy.actor_critic_forward(post)
         ita = self.config.ita
         rho = self.config.rho
-        """imag_value & V_lambda are all from target_critic"""
+
+        """
+        imag_value & V_lambda are all from target_critic in dreamer-ref
+        imag_value is from critic in dreamer-torch
+        """
         """seq_shift: act_log_probs[1:], V_lambda[:-1], imag_value[:-1]"""
-        reinforce_loss = -torch.mean(act_log_probs[1:].unsqueeze(-1) * (V_lambda[:-1] - imag_value[:-1]).detach())
-        dynamic_bp_loss = -torch.mean(V_lambda)
+        # reinforce_loss = -act_log_probs[:-1].unsqueeze(-1) * (V_lambda[:-1] - imag_value[:-1]).detach()
+        reinforce_loss = -act_log_probs[:-1].unsqueeze(-1) * (V_lambda[:-1] - value_dist.mean.detach()).detach()
+        dynamic_bp_loss = -V_lambda[:-1]
         """seq_shift: act_ent[1:]"""
-        entropy_loss = -torch.mean(act_ent[1:])
+        entropy_loss = -act_ent[:-1][:,:,None]
         actor_loss = rho * reinforce_loss + (1 - rho) * dynamic_bp_loss + ita * entropy_loss
+        actor_loss = torch.mean(actor_loss * weights)
         self.optimizer['actor'].zero_grad()
         actor_loss.backward()
         if self.use_grad_clip:
             torch.nn.utils.clip_grad_norm_(self.policy.actor_parameters, self.grad_clip_norm)
         self.optimizer['actor'].step()
-        """seq_shift: V_lambda[:-1]"""
-        critic_loss = -torch.mean(value_dist.log_prob(V_lambda[:-1].detach()))
 
+        """seq_shift: V_lambda[:-1]"""
+        critic_loss = -value_dist.log_prob(V_lambda[:-1].detach())
+        critic_loss = torch.mean(critic_loss * weights)
         self.optimizer['critic'].zero_grad()
         critic_loss.backward()
         if self.use_grad_clip:
             torch.nn.utils.clip_grad_norm_(self.policy.critic_parameters, self.grad_clip_norm)
         self.optimizer['critic'].step()
 
-        if self.use_grad_clip:
-            torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
-        # if self.scheduler is not None:
-        #     self.scheduler['actor'].step()
-
-        # Logger
+        # TODO Logger
         model_lr = self.optimizer['model'].state_dict()['param_groups'][0]['lr']
         actor_lr = self.optimizer['actor'].state_dict()['param_groups'][0]['lr']
         critic_lr = self.optimizer['critic'].state_dict()['param_groups'][0]['lr']
 
+        """
+        advantage = lambda_return - target_value
+        critic_loss = mse(target_value, value) or -maxlikelihood(target_value, value)
+        """
         info = {
+            "metrics/critic_value_dist_mean": torch.mean(value_dist.mean),
+            "metrics/target_critic_value": torch.mean(imag_value[:-1]),
+            "metrics/lambda_return": torch.mean(V_lambda[:-1]),
+
             "model_loss/model_loss": model_loss.item(),
             "model_loss/obs_loss": obs_loss.item(),
             "model_loss/rew_loss": rew_loss.item(),
             "model_loss/noterm_loss": noterm_loss.item(),
             "model_loss/kl_loss": kl_loss.item(),
 
-            "actor_loss/actor_loss": actor_loss.item(),
-            "actor_loss/reinforce_loss": reinforce_loss.item(),
-            "actor_loss/dynamic_bp_loss(-V_lambda)": dynamic_bp_loss.item(),
-            "actor_loss/entropy_loss": entropy_loss.item(),
+            "actor_loss/actor_loss": torch.mean(actor_loss).item(),
+            "actor_loss/reinforce_loss": torch.mean(reinforce_loss).item(),
+            "actor_loss/dynamic_bp_loss(-V_lambda)": torch.mean(dynamic_bp_loss).item(),
+            "actor_loss/entropy_loss": torch.mean(entropy_loss).item(),
 
-            "critic_loss": critic_loss.item(),
+            "critic_loss": torch.mean(critic_loss).item(),
 
-            "lr/model_lr": model_lr,
-            "lr/actor_lr": actor_lr,
-            "lr/critic_lr": critic_lr,
+            "update_count": self.iterations
+
+            # "lr/model_lr": model_lr,
+            # "lr/actor_lr": actor_lr,
+            # "lr/critic_lr": critic_lr,
         }
 
         return info
