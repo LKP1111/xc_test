@@ -9,7 +9,8 @@ from common import DreamerV3Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for CartPole.")
     parser.add_argument("--env-id", type=str, default="CartPole-v1")
-    parser.add_argument("--running-steps", type=int, default=10_0000)
+    parser.add_argument("--running-steps", type=int, default=100_000)
+    parser.add_argument("--eval-interval", type=int, default=1_000)
     parser.add_argument("--replay-ratio", type=int, default=1)
 
     parser.add_argument("--test", type=int, default=0)
@@ -21,8 +22,6 @@ def parse_args():
     # parser.add_argument("--test-episode", type=int, default=1)
     # parser.add_argument("--test", type=int, default=1)
     # parser.add_argument("--benchmark", type=int, default=0)
-
-
     return parser.parse_args()
 
 
