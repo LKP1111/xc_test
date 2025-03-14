@@ -692,7 +692,7 @@ class PlayerDV3(nn.Module):
             num_envs (Optional[int]): the number of environments.
                 If None, then it will be self.num_envs  # prop added to deal with xuance test
         """
-        num_envs = num_envs if num_envs else self.num_envs
+        num_envs = num_envs if num_envs else self.num_envs  # added to deal with xuance test
         if reset_envs is None or len(reset_envs) == 0:
             self.actions = torch.zeros(1, num_envs, np.sum(self.actions_dim), device=self.device)
             self.recurrent_state, stochastic_state = self.rssm.get_initial_states((1, num_envs))

@@ -10,7 +10,8 @@ def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for CartPole.")
     parser.add_argument("--env-id", type=str, default="CartPole-v1")
     parser.add_argument("--running-steps", type=int, default=100_000)
-    parser.add_argument("--eval-interval", type=int, default=1_000)
+    parser.add_argument("--eval-interval", type=int, default=10_000)
+    parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--replay-ratio", type=int, default=1)
 
     parser.add_argument("--test", type=int, default=0)

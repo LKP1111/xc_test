@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import List
+from typing import List, Dict
 
 import torch.nn
 
@@ -10,10 +10,11 @@ from xuance.torch import REGISTRY_Representation, REGISTRY_Policy, REGISTRY_Lear
 from xuance.torch.utils import ActivationFunctions
 
 # '.': import from __init__
-from . import DreamerV3WorldModel
+from . import DreamerV3WorldModel, PlayerDV3
 from . import DreamerV3Policy
 from . import DreamerV3Learner
 from . import SequentialReplayBuffer
+from . import dotdict
 
 import numpy as np
 from tqdm import tqdm
@@ -39,12 +40,22 @@ class DreamerV3Agent(OffPolicyAgent):
         REGISTRY_Representation['DreamerV3WorldModel'] = DreamerV3WorldModel
         self.model = self._build_representation(representation_key="DreamerV3WorldModel",
                                                 config=self.config, input_space=None)
-        self.player = self.model.player
         REGISTRY_Policy["DreamerV3Policy"] = DreamerV3Policy
         self.policy = self._build_policy()
         self.memory = self._build_memory()
         REGISTRY_Learners['DreamerV3Learner'] = DreamerV3Learner
         self.learner: DreamerV3Learner = self._build_learner(self.config, self.policy)
+
+        # train_player & train_states; make sure train & test to be independent
+        self.train_player: PlayerDV3 = self.model.player
+        self.train_player.init_states()
+        self.train_states: List[np.ndarray] = [
+            self.envs.buf_obs,  # obs: (envs, *obs_shape),
+            np.zeros((self.envs.num_envs, )),  # rews
+            np.zeros((self.envs.num_envs, )),  # terms
+            np.zeros((self.envs.num_envs, )),  # truncs
+            np.ones((self.envs.num_envs, ))  # is_first
+        ]
 
     def _build_representation(self, representation_key: str,
                               input_space: Optional[gym.spaces.Space],
@@ -82,24 +93,25 @@ class DreamerV3Agent(OffPolicyAgent):
     def _build_policy(self) -> DreamerV3Policy:
         return REGISTRY_Policy["DreamerV3Policy"](self.model, self.config)
 
-    def action(self, observations: np.ndarray,
-               test_mode: Optional[bool] = False) -> np.ndarray:
+    def action(self,
+               observations: np.ndarray,
+               test_mode: Optional[bool] = False,
+               player: Optional[PlayerDV3] = None) -> np.ndarray:
         """Returns actions and values.
 
         Parameters:
             observations (np.ndarray): The observation.
             test_mode (Optional[bool]): True for testing without noises.
+            player (Optional[PlayerDV3]): The player whose action is taken, default is train_player.
 
         Returns:
             actions: The actions to be executed.
-            values: The evaluated values.
-            dists: The policy distributions.
-            log_pi: Log of stochastic actions.
         """
+        player = player if player is not None else self.train_player
         # actions_output = self.policy(observations)
         # [envs, *obs_shape] -> [1: batch, envs, *obs_shape]
         obs = torch.as_tensor(observations, device=self.device).unsqueeze(0)
-        actions = self.player.get_actions(obs, greedy=test_mode, mask=None)[0][0]
+        actions = player.get_actions(obs, greedy=test_mode, mask=None)[0][0]
         # ont-hot -> real_actions
         if not self.is_continuous:
             actions = actions.argmax(dim=1).detach().cpu().numpy()
@@ -111,7 +123,7 @@ class DreamerV3Agent(OffPolicyAgent):
         """
         return actions
 
-    def train_epochs(self, n_epochs: int = 1):
+    def train_epochs(self, n_epochs: int = 1):  # TODO
         train_info = {}
         for _ in range(n_epochs):
             samples = self.memory.sample(self.config.seq_len)
@@ -120,26 +132,22 @@ class DreamerV3Agent(OffPolicyAgent):
         # train_info["noise_scale"] = self.noise_scale
         return train_info
 
-    def squeeze_and_store(self, x: List[np.ndarray]):
-        # deal with xuance memory store
-        self.memory.store(*(lambda t: [np.squeeze(_) for _ in t])(x))
+    def _squeeze_and_store(self, x: List[np.ndarray]):
+        # deal with xuance memory store, deepcopy: do not change dim of the variables
+        self.memory.store(*(lambda t: [np.squeeze(_) for _ in t])(deepcopy(x)))
 
-    def train(self, train_steps):
-        self.player.init_states()
+    def train(self, train_steps):  # each train uses old envs
         return_info = {}
-        obs = self.envs.buf_obs  # (envs, *obs_shape)
-        rews = np.zeros((self.envs.num_envs, 1))
-        terms = np.zeros((self.envs.num_envs, 1))
-        truncs = np.zeros((self.envs.num_envs, 1))
-        is_first = np.ones_like(terms)
+        obs, rews, terms, truncs, is_first = self.train_states
+
         for _ in tqdm(range(train_steps)):
             step_info = {}
             self.obs_rms.update(obs)  # ?
             obs = self._process_observation(obs)  # obs_norm
-            acts = self.action(obs, test_mode=False)
+            acts = self.action(obs)
             """(o1, a1, r0, term0, trunc0, is_first1), act: not one-hot"""
-            self.squeeze_and_store([obs, acts, self._process_reward(rews), terms, truncs, is_first])
-            next_obs, rews, terms, truncs, infos = self.envs.step(acts)
+            self._squeeze_and_store([obs, acts, self._process_reward(rews), terms, truncs, is_first])
+            next_obs, rews, terms, truncs, infos = self.envs.step(np.squeeze(acts))
             """
             set to zeros after the first step
             (o2, a1, r1, term1, trunc1, is_first2)
@@ -177,17 +185,17 @@ class DreamerV3Agent(OffPolicyAgent):
                 store the last data and reset all
                 (o_t, a_t = 0 for dones, r_{t-1}, term_{t-1}, trunc_{t-1}, is_first_t)
                 """
-                acts[done_idxes] = np.zeros((len(done_idxes), 1))
-                self.squeeze_and_store([obs, acts, self._process_reward(rews), terms, truncs, is_first])
-                obs[done_idxes] = infos[done_idxes]["reset_obs"]  # reset obs
-                self.envs.buf_obs[done_idxes] = obs[done_idxes]
-                rews[done_idxes] = np.zeros((len(done_idxes), 1))
-                terms[done_idxes] = np.zeros((len(done_idxes), 1))
-                truncs[done_idxes] = np.zeros((len(done_idxes), 1))
-                is_first[done_idxes] = np.ones_like(terms)
-                """reset DreamerV3 Player's states"""
-                self.player.init_states(done_idxes)
+                acts[done_idxes] = np.zeros((len(done_idxes), ))
+                self._squeeze_and_store([obs, acts, self._process_reward(rews), terms, truncs, is_first])
 
+                """reset DreamerV3 Player's states"""
+                obs[done_idxes] = np.stack([infos[idx]["reset_obs"] for idx in done_idxes])  # reset obs
+                self.envs.buf_obs[done_idxes] = obs[done_idxes]
+                rews[done_idxes] = np.zeros((len(done_idxes), ))
+                terms[done_idxes] = np.zeros((len(done_idxes), ))
+                truncs[done_idxes] = np.zeros((len(done_idxes), ))
+                is_first[done_idxes] = np.ones_like(terms[done_idxes])
+                self.train_player.init_states(done_idxes)
             """
             start training 
             replay_ratio = self.gradient_step / self.current_step
@@ -195,15 +203,19 @@ class DreamerV3Agent(OffPolicyAgent):
             if self.current_step > self.start_training:
                 n_epochs = max(int(self.current_step * self.replay_ratio - self.gradient_step), 0)
                 train_info = self.train_epochs(n_epochs=n_epochs)
-                self.log_infos(train_info, self.current_step)
-                return_info.update(train_info)
-
-            return return_info
+                self.gradient_step += n_epochs
+                if train_info is not None:
+                    self.log_infos(train_info, self.current_step)
+                    return_info.update(train_info)
+        # save the train_states for next train
+        self.train_states = [obs, rews, terms, truncs, is_first]
+        return return_info
 
     def test(self, env_fn, test_episodes: int) -> list:
         test_envs = env_fn()
         num_envs = test_envs.num_envs
-        self.player.init_states(num_envs=num_envs)
+        test_player = deepcopy(self.train_player)  # copy the total network for test
+        test_player.init_states(num_envs=num_envs)
         videos, episode_videos = [[] for _ in range(num_envs)], []
         current_episode, scores, best_score = 0, [], -np.inf
         obs, infos = test_envs.reset()
@@ -215,8 +227,8 @@ class DreamerV3Agent(OffPolicyAgent):
         while current_episode < test_episodes:
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)
-            acts = self.action(obs, test_mode=True)
-            next_obs, rews, terms, truncs, infos = test_envs.step(acts)
+            acts = self.action(obs, test_mode=True, player=test_player)
+            next_obs, rews, terms, truncs, infos = test_envs.step(np.squeeze(acts))
             if self.config.render_mode == "rgb_array" and self.render:
                 images = test_envs.render(self.config.render_mode)
                 for idx, img in enumerate(images):
@@ -238,7 +250,7 @@ class DreamerV3Agent(OffPolicyAgent):
                         if self.config.test_mode:
                             print("Episode: %d, Score: %.2f" % (current_episode, infos[i]["episode_score"]))
 
-            self.player.init_states(reset_envs=done_idxes, num_envs=num_envs)
+            test_player.init_states(reset_envs=done_idxes, num_envs=num_envs)
 
         if self.config.render_mode == "rgb_array" and self.render:
             # time, height, width, channel -> time, channel, height, width

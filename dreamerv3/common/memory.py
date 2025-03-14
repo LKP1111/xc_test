@@ -65,8 +65,7 @@ class SequentialReplayBuffer(Buffer):
 
     def sample(self, seq_len: int):
         """
-        Sample elements from the replay buffer in a sequential manner, without considering the episode
-        boundaries.
+        Sample elements from the replay buffer in a sequential manner, without considering the episode boundaries.
         Args:
             seq_len (int)
         Returns:
@@ -91,13 +90,14 @@ class SequentialReplayBuffer(Buffer):
             idxes = (start + seq_arange) % self.n_size  # (batch, seq)
             li.append(np.swapaxes(idxes, 0, 1))  # (seq, batch)
         idxes = np.stack(li)  # (envs, seq, batch)
-        idxes = idxes.ravel()
+        envs = np.broadcast_to(np.arange(self.n_envs)[:, None, None], idxes.shape)  # (env, seq, batch)
+        envs, idxes = envs.ravel(), idxes.ravel()
         samples_dict = {  # (envs, seq, batch, ~)
-            'obs': self.observations[idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.observation_space)),
-            'actions': self.actions[idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.action_space)),
-            'rewards': self.rewards[idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
-            'terminals': self.terminals[idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
-            'truncations': self.truncations[idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
-            'is_first': self.is_first[idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'obs': self.observations[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.observation_space)),
+            'actions': self.actions[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.action_space)),
+            'rewards': self.rewards[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'terminals': self.terminals[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'truncations': self.truncations[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'is_first': self.is_first[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
         }
         return samples_dict
