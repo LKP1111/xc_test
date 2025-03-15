@@ -216,6 +216,7 @@ class MLPDecoder(nn.Module):
     for every reconstructed vector.
 
     Args:
+        keys (Sequence[str]): the keys representing the vector observations to decode.
         output_dims (Sequence[int]): the dimensions of every vector to decode.
         latent_state_size (int): the dimension of the latent state.
         mlp_layers (int, optional): how many mlp layers.
@@ -231,14 +232,14 @@ class MLPDecoder(nn.Module):
     """
 
     def __init__(
-            self,
-            output_dims: Sequence[str],
-            latent_state_size: int,
-            mlp_layers: int = 4,
-            dense_units: int = 512,
-            activation: ModuleType = nn.SiLU,
-            layer_norm_cls: Callable[..., nn.Module] = LayerNorm,
-            layer_norm_kw: Dict[str, Any] = {"eps": 1e-3},
+        self,
+        output_dims: Sequence[int],
+        latent_state_size: int,
+        mlp_layers: int = 4,
+        dense_units: int = 512,
+        activation: ModuleType = nn.SiLU,
+        layer_norm_cls: Callable[..., nn.Module] = LayerNorm,
+        layer_norm_kw: Dict[str, Any] = {"eps": 1e-3},
     ) -> None:
         super().__init__()
         self.output_dims = output_dims
@@ -253,9 +254,9 @@ class MLPDecoder(nn.Module):
         )
         self.heads = nn.ModuleList([nn.Linear(dense_units, mlp_dim) for mlp_dim in self.output_dims])
 
-    def forward(self, latent_states: Tensor) -> List[Tensor]:
+    def forward(self, latent_states: Tensor) -> Dict[str, Tensor]:
         x = self.model(latent_states)
-        return self.heads
+        return self.heads[0](x)  # revised to adapt to xuance
 
 
 class RecurrentModel(nn.Module):
@@ -516,7 +517,7 @@ class Actor(nn.Module):
     def __init__(
             self,
             latent_state_size: int,
-            actions_dim: Sequence[int],
+            actions_dim: int,
             is_continuous: bool,
             distribution_config: Dict[str, Any],
             init_std: float = 0.0,
@@ -761,7 +762,9 @@ class WorldModel(nn.Module):
 
 
 class DreamerV3WorldModel(nn.Module):
-    def __init__(self, actions_dim: Sequence[int], is_continuous: bool, config: Dict[str, Any],
+    def __init__(self, actions_dim: Sequence[int],
+                 is_continuous: bool,
+                 config: Dict[str, Any],
                  obs_space: gym.spaces.Dict):
         super().__init__()
         self.actions_dim = actions_dim
@@ -814,7 +817,7 @@ class DreamerV3WorldModel(nn.Module):
         recurrent_state_size = world_model_config.recurrent_model.recurrent_state_size
         stochastic_size = world_model_config.stochastic_size * world_model_config.discrete_size
         latent_state_size = stochastic_size + recurrent_state_size
-
+        # TODO obs_space Dict[str, space] -> space
         # Define models
         cnn_stages = int(np.log2(config.env.screen_size) - np.log2(4))  # 4
         cnn_encoder = (

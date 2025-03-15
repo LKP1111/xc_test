@@ -720,12 +720,13 @@ class MultiDecoder(nn.Module):
     def mlp_keys(self) -> Sequence[str]:
         return self.mlp_decoder.keys if self.mlp_decoder is not None else []
 
-    def forward(self, x: Tensor) -> Dict[str, Tensor]:
-        reconstructed_obs = {}
+    # adapt to xuance: the return Dict[str, Tensor] modified to -> Tensor
+    def forward(self, x: Tensor) -> Tensor:
+        reconstructed_obs = None
         if self.cnn_decoder is not None:
-            reconstructed_obs.update(self.cnn_decoder(x))
+            reconstructed_obs = self.cnn_decoder(x)
         if self.mlp_decoder is not None:
-            reconstructed_obs.update(self.mlp_decoder(x))
+            reconstructed_obs = self.mlp_decoder(x)
         return reconstructed_obs
 
 

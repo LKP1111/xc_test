@@ -29,23 +29,22 @@ class SequentialReplayBuffer(Buffer):
         self.n_envs, self.batch_size = n_envs, batch_size
         assert buffer_size % self.n_envs == 0, "buffer_size must be divisible by the number of envs (parallels)"
         self.n_size = buffer_size // self.n_envs
-        self.observations = create_memory(space2shape(self.observation_space), self.n_envs, self.n_size)
-        self.actions = create_memory(space2shape(self.action_space), self.n_envs, self.n_size)
-        self.rewards = create_memory((), self.n_envs, self.n_size)
-        self.terminals = create_memory((), self.n_envs, self.n_size)
-        self.truncations = create_memory((), self.n_envs, self.n_size)
+        self.obs = create_memory(space2shape(self.observation_space), self.n_envs, self.n_size)
+        self.acts = create_memory(space2shape(self.action_space), self.n_envs, self.n_size)
+        self.rews = create_memory((), self.n_envs, self.n_size)
+        self.terms = create_memory((), self.n_envs, self.n_size)
+        self.truncs = create_memory((), self.n_envs, self.n_size)
         self.is_first = create_memory((), self.n_envs, self.n_size)
 
     def clear(self):
-        self.observations = create_memory(space2shape(self.observation_space), self.n_envs, self.n_size)
-        self.actions = create_memory(space2shape(self.action_space), self.n_envs, self.n_size)
-        self.rewards = create_memory((), self.n_envs, self.n_size)
-        self.observations = create_memory(space2shape(self.observation_space), self.n_envs, self.n_size)
-        self.terminals = create_memory((), self.n_envs, self.n_size)
-        self.truncations = create_memory((), self.n_envs, self.n_size)
+        self.obs = create_memory(space2shape(self.observation_space), self.n_envs, self.n_size)
+        self.acts = create_memory(space2shape(self.action_space), self.n_envs, self.n_size)
+        self.rews = create_memory((), self.n_envs, self.n_size)
+        self.terms = create_memory((), self.n_envs, self.n_size)
+        self.truncs = create_memory((), self.n_envs, self.n_size)
         self.is_first = create_memory((), self.n_envs, self.n_size)
 
-    def store(self, obs, acts, rews, terminals, truncations, is_first):
+    def store(self, obs, acts, rews, terms, truncs, is_first):
         """
 
         Args:
@@ -54,11 +53,11 @@ class SequentialReplayBuffer(Buffer):
         Returns:
 
         """
-        store_element(obs, self.observations, self.ptr)
-        store_element(acts, self.actions, self.ptr)
-        store_element(rews, self.rewards, self.ptr)
-        store_element(terminals, self.terminals, self.ptr)
-        store_element(truncations, self.truncations, self.ptr)
+        store_element(obs, self.obs, self.ptr)
+        store_element(acts, self.acts, self.ptr)
+        store_element(rews, self.rews, self.ptr)
+        store_element(terms, self.terms, self.ptr)
+        store_element(truncs, self.truncs, self.ptr)
         store_element(is_first, self.is_first, self.ptr)
         self.ptr = (self.ptr + 1) % self.n_size
         self.size = min(self.size + 1, self.n_size)
@@ -93,11 +92,11 @@ class SequentialReplayBuffer(Buffer):
         envs = np.broadcast_to(np.arange(self.n_envs)[:, None, None], idxes.shape)  # (env, seq, batch)
         envs, idxes = envs.ravel(), idxes.ravel()
         samples_dict = {  # (envs, seq, batch, ~)
-            'obs': self.observations[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.observation_space)),
-            'actions': self.actions[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.action_space)),
-            'rewards': self.rewards[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
-            'terminals': self.terminals[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
-            'truncations': self.truncations[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'obs': self.obs[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.observation_space)),
+            'acts': self.acts[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, *space2shape(self.action_space)),
+            'rews': self.rews[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'terms': self.terms[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
+            'truncs': self.truncs[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
             'is_first': self.is_first[envs, idxes].reshape(self.n_envs, seq_len, self.batch_size, 1),
         }
         return samples_dict
