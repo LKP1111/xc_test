@@ -141,14 +141,14 @@ class DreamerV3Agent(OffPolicyAgent):
         samples = self.memory.sample(self.config.seq_len)  # (envs, seq, batch, ~)
         # n_epoch(n_gradient step) scattered to each environment
         st = np.random.choice(np.arange(self.envs.num_envs), 1).item()
-        for _ in range(n_epochs):
+        for _ in range(n_epochs):  # assert n_epochs == parallels
             cur_samples = {k: v[(st + _) % self.envs.num_envs] for k, v in samples.items()}
             train_info = self.learner.update(**cur_samples)
         return train_info
 
     def _squeeze_and_store(self, x: List[np.ndarray]):
         # deal with xuance memory store, deepcopy: do not change dim of the variables
-        self.memory.store(*(lambda t: [np.squeeze(_) for _ in t])(deepcopy(x)))
+        self.memory.store(*(lambda t: [np.squeeze(_) for _ in t])(x))
 
     def train(self, train_steps):  # each train uses old envs
         return_info = {}
@@ -159,13 +159,13 @@ class DreamerV3Agent(OffPolicyAgent):
             self.obs_rms.update(obs)  # ?
             obs = self._process_observation(obs)  # obs_norm
             acts = self.action(obs)
-            """(o1, a1, r0, term0, trunc0, is_first1), act: not one-hot"""
+            """(o1, a1, r1, term1, trunc1, is_first1), act: not one-hot"""
             self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
             # self._squeeze_and_store([])
-            next_obs, rews, terms, truncs, infos = self.envs.step(np.squeeze(acts))
+            next_obs, rews, terms, truncs, infos = self.envs.step(acts)
             """
             set to zeros after the first step
-            (o2, a1, r1, term1, trunc1, is_first2)
+            (o2, a1, r2, term2, trunc2, is_first2)
             """
             is_first = np.zeros_like(terms)
             obs = next_obs
@@ -198,7 +198,7 @@ class DreamerV3Agent(OffPolicyAgent):
             if len(done_idxes) > 0:
                 """
                 store the last data and reset all
-                (o_t, a_t = 0 for dones, r_{t-1}, term_{t-1}, trunc_{t-1}, is_first_t)
+                (o_t, a_t = 0 for dones, r_t, term_t, trunc_t, is_first_t)
                 """
                 acts[done_idxes] = np.zeros((len(done_idxes), ))
                 self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
@@ -217,7 +217,8 @@ class DreamerV3Agent(OffPolicyAgent):
             replay_ratio = self.gradient_step / self.current_step
             """
             if self.current_step > self.start_training:
-                n_epochs = max(int(self.current_step * self.replay_ratio - self.gradient_step), 0)
+                # count current_step when start_training
+                n_epochs = max(int((self.current_step - self.start_training) * self.replay_ratio - self.gradient_step), 0)
                 train_info = self.train_epochs(n_epochs=n_epochs)
                 self.gradient_step += n_epochs
                 if train_info is not None:
@@ -244,7 +245,7 @@ class DreamerV3Agent(OffPolicyAgent):
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)
             acts = self.action(obs, test_mode=True, player=test_player)
-            next_obs, rews, terms, truncs, infos = test_envs.step(np.squeeze(acts))
+            next_obs, rews, terms, truncs, infos = test_envs.step(acts)
             if self.config.render_mode == "rgb_array" and self.render:
                 images = test_envs.render(self.config.render_mode)
                 for idx, img in enumerate(images):

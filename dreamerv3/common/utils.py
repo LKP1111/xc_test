@@ -197,7 +197,7 @@ class Moments(nn.Module):
 
     def forward(self, x: Tensor) -> Any:  # delete Fabric module
         # gathered_x = fabric.all_gather(x).float().detach()
-        gathered_x = x
+        gathered_x = x.float().detach()  # detach() !!!
         low = torch.quantile(gathered_x, self._percentile_low)
         high = torch.quantile(gathered_x, self._percentile_high)
         self.low = self._decay * self.low + (1 - self._decay) * low

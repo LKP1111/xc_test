@@ -11,11 +11,12 @@ def parse_args():
     parser.add_argument("--env-id", type=str, default="CartPole-v1")
     parser.add_argument("--running-steps", type=int, default=100_000)
     parser.add_argument("--eval-interval", type=int, default=10_000)
-    parser.add_argument("--device", type=str, default="cpu")
+    # parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--replay-ratio", type=int, default=1)
 
     parser.add_argument("--test", type=int, default=0)
-    parser.add_argument("--benchmark", type=int, default=1)
+    parser.add_argument("--benchmark", type=int, default=0)
 
     # parser.add_argument("--render", type=bool, default=True)
     # parser.add_argument("--render_mode", type=str, default='human')

@@ -1,5 +1,6 @@
 # from __future__ import annotations
 import copy
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import gymnasium as gym
@@ -846,7 +847,7 @@ class DreamerV3WorldModel(nn.Module):
             # if config.mlp_keys.encoder is not None and len(config.mlp_keys.encoder) > 0
             # else None
         )
-        encoder = MultiEncoder(cnn_encoder, mlp_encoder)
+        encoder = MultiEncoder(cnn_encoder, mlp_encoder).to(config.device)
 
         recurrent_model = RecurrentModel(
             input_size=int(sum(actions_dim) + stochastic_size),
@@ -934,7 +935,7 @@ class DreamerV3WorldModel(nn.Module):
             # if config.mlp_keys.decoder is not None and len(config.mlp_keys.decoder) > 0
             # else None
         )
-        observation_model = MultiDecoder(cnn_decoder, mlp_decoder)
+        observation_model = MultiDecoder(cnn_decoder, mlp_decoder).to(config.device)
 
         reward_ln_cls = LayerNorm
         reward_model = MLP(
@@ -949,7 +950,7 @@ class DreamerV3WorldModel(nn.Module):
                 **world_model_config.reward_model.layer_norm.kw,
                 "normalized_shape": world_model_config.reward_model.dense_units,
             },
-        )
+        ).to(config.device)
 
         discount_ln_cls = LayerNorm
         continue_model = MLP(
@@ -964,7 +965,7 @@ class DreamerV3WorldModel(nn.Module):
                 **world_model_config.discount_model.layer_norm.kw,
                 "normalized_shape": world_model_config.discount_model.dense_units,
             },
-        )
+        ).to(config.device)
         world_model = WorldModel(
             encoder.apply(init_weights),
             rssm,
@@ -988,7 +989,7 @@ class DreamerV3WorldModel(nn.Module):
             layer_norm_kw=actor_config.layer_norm.kw,
             unimix=config.unimix,
             action_clip=actor_config.action_clip,
-        )
+        ).to(config.device)
 
         critic_ln_cls = LayerNorm
         critic = MLP(
@@ -1003,7 +1004,7 @@ class DreamerV3WorldModel(nn.Module):
                 **critic_config.layer_norm.kw,
                 "normalized_shape": critic_config.dense_units,
             },
-        )
+        ).to(config.device)
         actor.apply(init_weights)
         critic.apply(init_weights)
 

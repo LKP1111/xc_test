@@ -46,7 +46,7 @@ world_model:
   kl_free_nats: 1.0
   kl_regularizer: 1.0
   continue_scale_factor: 1.0
-  clip_gradients: 1000.0
+  clip_gradients: 1000.0  # TODO
   decoupled_rssm: false
   learnable_initial_recurrent_state: true
   encoder:
@@ -137,7 +137,7 @@ actor:
     kw:
       eps: 0.001
   dense_units: 512
-  clip_gradients: 100.0
+  clip_gradients: 100.0  # TODO
   unimix: 0.01
   action_clip: 1.0
   moments:
@@ -147,14 +147,14 @@ actor:
       low: 0.05
       high: 0.95
 critic:
-  optimizer:
-    _target_: torch.optim.Adam
-    lr: 8.0e-05
-    eps: 1.0e-05
-    weight_decay: 0
-    betas:
-      - 0.9
-      - 0.999
+#  optimizer:
+#    _target_: torch.optim.Adam
+#    lr: 8.0e-05
+#    eps: 1.0e-05
+#    weight_decay: 0
+#    betas:
+#      - 0.9
+#      - 0.999
   dense_act: torch.nn.SiLU
   mlp_layers: 2
   layer_norm:
@@ -165,7 +165,7 @@ critic:
   soft_update_freq: 1
   tau: 0.02
   bins: 255
-  clip_gradients: 100.0
+  clip_gradients: 100.0  # TODO
 #  clip_gradients: 100.0
 
 
@@ -210,8 +210,8 @@ use_grad_clip: True  # gradient normalization
 grad_clip_norm: 100.0
 
 use_actions_mask: False
-use_obsnorm: True
-use_rewnorm: True
+use_obsnorm: False
+use_rewnorm: False
 obsnorm_range: 5
 rewnorm_range: 5
 

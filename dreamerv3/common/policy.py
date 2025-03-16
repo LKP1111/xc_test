@@ -10,7 +10,7 @@ from . import MSEDistribution, SymlogDistribution, TwoHotEncodingDistribution, B
 from .utils import Moments, compute_lambda_values
 
 # Step 1: Create a policy.
-class DreamerV3Policy(nn.Module):
+class DreamerV3Policy(nn.Module):  # checked
     def __init__(self, model: nn.Module, config: Namespace):
         super(DreamerV3Policy, self).__init__()
         # convert to dotdict
@@ -34,10 +34,10 @@ class DreamerV3Policy(nn.Module):
 
         # for EMA
         self.moments = Moments(
-            self.config.actor.moments.decay,
-            self.config.actor.moments.max,
-            self.config.actor.moments.percentile.low,
-            self.config.actor.moments.percentile.high,
+            self.config.actor.moments.decay,  # 0.99
+            self.config.actor.moments.max,  # 1.0
+            self.config.actor.moments.percentile.low,  # 0.05
+            self.config.actor.moments.percentile.high,  # 0.95
         )
 
     def model_forward(self,
@@ -132,6 +132,8 @@ class DreamerV3Policy(nn.Module):
             imagined_actions[i] = actions
         """values, rews 都为随机变量, 用 two-hot 编码"""
         # Predict values, rewards and continues  # norm_dist -> two_hot_dist
+        # """下面两行 TwoHotEncoding 占用显存不释放; 已解决, 之前因为 Moments 中的 input 没有 detach 导致 cuda out of memory"""
+        # with torch.no_grad():  # img_traj.detach()
         predicted_values = TwoHotEncodingDistribution(self.critic(imagined_trajectories), dims=1).mean
         predicted_rewards = TwoHotEncodingDistribution(self.world_model.reward_model(imagined_trajectories), dims=1).mean
         continues = Independent(BernoulliSafeMode(logits=self.world_model.continue_model(imagined_trajectories)), 1).mode
@@ -155,7 +157,7 @@ class DreamerV3Policy(nn.Module):
         """policy.actor_forward -> learner; seq_shift, 去掉最后一个, 即 lambda_v2 - v1 作为 adv1"""
         baseline = predicted_values[:-1]
         # TODO to understand return & baseline normalization
-        offset, invscale = self.moments(lambda_values)
+        offset, invscale = self.moments(lambda_values)  # detach should be done in the forward method
         normed_lambda_values = (lambda_values - offset) / invscale
         normed_baseline = (baseline - offset) / invscale
         advantage = normed_lambda_values - normed_baseline
@@ -189,7 +191,7 @@ class DreamerV3Policy(nn.Module):
             'for_critic': [qv, predicted_target_values, lambda_values]
         }
 
-    def soft_update(self, tau=0.02):
+    def soft_update(self, tau=0.02):  # checked
         for ep, tp in zip(self.critic.parameters(), self.target_critic.parameters()):
             tp.data.mul_(1 - tau)
             tp.data.add_(tau * ep.data)

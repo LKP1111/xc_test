@@ -24,11 +24,11 @@ class DreamerV3Learner(Learner):
         self.gamma = self.config.gamma
         self.soft_update_freq = self.config.critic.soft_update_freq
 
-        self.kl_dynamic = self.config.world_model.kl_dynamic
-        self.kl_representation = self.config.world_model.kl_representation
-        self.kl_free_nats = self.config.world_model.kl_free_nats
-        self.kl_regularizer = self.config.world_model.kl_regularizer
-        self.continue_scale_factor = self.config.world_model.continue_scale_factor
+        self.kl_dynamic = self.config.world_model.kl_dynamic  # 0.5
+        self.kl_representation = self.config.world_model.kl_representation  # 0.1
+        self.kl_free_nats = self.config.world_model.kl_free_nats  # 1.0
+        self.kl_regularizer = self.config.world_model.kl_regularizer  # 1.0
+        self.continue_scale_factor = self.config.world_model.continue_scale_factor  # 1.0
 
         # optimizers
         self.optimizer = {
@@ -52,10 +52,10 @@ class DreamerV3Learner(Learner):
     def update(self, **samples):
         if self.gradient_step % self.soft_update_freq == 0:
             self.policy.soft_update(self.tau)
-        # [seq, batch, ~]
+        # [seq, batch, ~]  # checked
         obs = torch.as_tensor(samples['obs'], device=self.device)
         acts = torch.as_tensor(samples['acts'], device=self.device)
-        # acts to one_hot
+        # acts to one_hot [seq, batch, action_size]
         acts = nn.functional.one_hot(acts.long(), num_classes=self.action_shape).float()
         rews = torch.as_tensor(samples['rews'], device=self.device)
         terms = torch.as_tensor(samples['terms'], device=self.device)  # no use
@@ -65,15 +65,16 @@ class DreamerV3Learner(Learner):
         seq_shift
         (o1, a1 -> a0, r1, terms1, truncs1, is_first1)
         """
-        is_first[0] = torch.ones_like(is_first[0])
-        acts = torch.cat((torch.ones_like(acts[:1]), acts[:-1]), 0)
+        # is_first[0] = torch.ones_like(is_first[0])  # TODO check data["is_first"][0, :] = torch.ones_like(data["is_first"][0, :])
+        is_first[0, :] = torch.ones_like(is_first[0, :])
+        acts = torch.cat((torch.zeros_like(acts[:1]), acts[:-1]), 0)  # bug fixed ones_like -> zeros_like
         cont = 1 - terms
 
         po, pr, pc, priors_logits, posteriors_logits, recurrent_states, posteriors =\
             self.policy.model_forward(obs, acts, is_first)
 
         """model"""
-        observation_loss = po.log_prob(obs)
+        observation_loss = -po.log_prob(obs)  # bug fixed po.log_prob(obs) -> -po.log_prob(obs)  3-16-20:39
         reward_loss = -pr.log_prob(rews)
         # KL balancing
         dyn_loss = kl = kl_divergence(  # prior -> post
@@ -107,10 +108,10 @@ class DreamerV3Learner(Learner):
         model_loss.backward()
         self.optimizer['model'].step()
 
-        out = self.policy.actor_critic_forward(posteriors, recurrent_states, terms)
+        """actor"""
+        out = self.policy.actor_critic_forward(posteriors, recurrent_states, terms)  # TODO out of graphic memory ??
         objective, discount, entropy = out['for_actor']
         qv, predicted_target_values, lambda_values = out['for_critic']
-        """actor"""
         actor_loss = -torch.mean(discount[:-1].detach() * (objective + entropy.unsqueeze(dim=-1)[:-1]))
 
         self.optimizer['actor'].zero_grad()
@@ -133,12 +134,30 @@ class DreamerV3Learner(Learner):
         self.optimizer['critic'].step()
 
         self.gradient_step += 1
+        print(f'gradient_step: {self.gradient_step}')
+
+        # def memory_stats():
+        #     print(torch.cuda.memory_allocated() / 1024 ** 2)
+        #     print(torch.cuda.memory_reserved() / 1024 ** 2)
+        # print(torch.cuda.memory_summary())
 
         # TODO metrics
-        (
-            kl.mean(),
-            kl_loss.mean(),
-            reward_loss.mean(),
-            observation_loss.mean(),
-            continue_loss.mean(),
-        )
+        info = {
+            "model_loss/model_loss": model_loss.item(),
+            "model_loss/obs_loss": observation_loss.mean().item(),
+            "model_loss/rew_loss": reward_loss.mean().item(),
+            "model_loss/continue_loss": continue_loss.mean().item(),
+            "model_loss/kl_loss": kl_loss.mean().item(),
+
+            "actor_loss/actor_loss": actor_loss.item(),
+            "actor_loss/reinforce_loss": objective.mean().item(),
+            "actor_loss/entropy_loss": entropy.unsqueeze(dim=-1)[:-1].mean().item(),
+
+            "critic_loss/critic_loss": critic_loss.item(),
+            "critic_loss/lambda_values": lambda_values.mean().item(),
+
+            # "lr/model_lr": model_lr,
+            # "lr/actor_lr": actor_lr,
+            # "lr/critic_lr": critic_lr,
+        }
+        return info
