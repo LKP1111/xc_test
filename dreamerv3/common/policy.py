@@ -158,7 +158,7 @@ class DreamerV3Policy(nn.Module):  # checked
         baseline = predicted_values[:-1]
         # TODO to understand return & baseline normalization
         offset, invscale = self.moments(lambda_values)  # detach should be done in the forward method
-        normed_lambda_values = (lambda_values - offset) / invscale
+        normed_lambda_values = (lambda_values - offset) / invscale  # (x - low) / (high - low)
         normed_baseline = (baseline - offset) / invscale
         advantage = normed_lambda_values - normed_baseline
         if self.is_continuous:

@@ -178,14 +178,17 @@ def compute_lambda_values(
     return ret
 
 
-"""for Exponential Moving Average"""
+"""
+calculate the running_mean of lambda_return of percentile_low & high 
+from imagine sequence using Exponential Moving Average
+"""
 class Moments(nn.Module):
     def __init__(
         self,
-        decay: float = 0.99,
-        max_: float = 1e8,
-        percentile_low: float = 0.05,
-        percentile_high: float = 0.95,
+        decay: float = 0.99,  # 0.99
+        max_: float = 1e8,  # 1.0
+        percentile_low: float = 0.05,  # 0.05
+        percentile_high: float = 0.95,  # 0.95
     ) -> None:
         super().__init__()
         self._decay = decay
@@ -198,9 +201,9 @@ class Moments(nn.Module):
     def forward(self, x: Tensor) -> Any:  # delete Fabric module
         # gathered_x = fabric.all_gather(x).float().detach()
         gathered_x = x.float().detach()  # detach() !!!
-        low = torch.quantile(gathered_x, self._percentile_low)
+        low = torch.quantile(gathered_x, self._percentile_low)  # 每次拿到的是 [seq, batch, ~] 中的 low 和 high
         high = torch.quantile(gathered_x, self._percentile_high)
-        self.low = self._decay * self.low + (1 - self._decay) * low
+        self.low = self._decay * self.low + (1 - self._decay) * low  # update rate is 0.01
         self.high = self._decay * self.high + (1 - self._decay) * high
         invscale = torch.max(1 / self._max, self.high - self.low)
         return self.low.detach(), invscale.detach()
