@@ -134,7 +134,8 @@ class DreamerV3Learner(Learner):
         self.optimizer['critic'].step()
 
         self.gradient_step += 1
-        print(f'gradient_step: {self.gradient_step}')
+        if self.gradient_step % 100 == 0:
+            print(f'gradient_step: {self.gradient_step}')
 
         # def memory_stats():
         #     print(torch.cuda.memory_allocated() / 1024 ** 2)

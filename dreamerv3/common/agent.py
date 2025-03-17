@@ -258,7 +258,7 @@ class DreamerV3Agent(OffPolicyAgent):
                     if self.atari and (~truncs[i]):
                         pass
                     else:
-                        done_idxes.append(i)
+                        done_idxes.append(i)  # bug fixed, add done_idxes.append
                         obs[i] = infos[i]["reset_obs"]
                         scores.append(infos[i]["episode_score"])
                         current_episode += 1
