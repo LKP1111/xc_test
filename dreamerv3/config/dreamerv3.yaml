@@ -218,5 +218,5 @@ rewnorm_range: 5
 test_steps: 10000  # ??
 eval_interval: 20000
 test_episode: 3
-log_dir: "./logs/dreamerv3/"
-model_dir: "./models/dreamerv3/"
+log_dir: "./logs/CartPole/"
+model_dir: "./models/CartPole/"

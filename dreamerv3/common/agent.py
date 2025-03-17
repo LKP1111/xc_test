@@ -267,7 +267,7 @@ class DreamerV3Agent(OffPolicyAgent):
                             episode_videos = videos[i].copy()
                         if self.config.test_mode:
                             print("Episode: %d, Score: %.2f" % (current_episode, infos[i]["episode_score"]))
-            if len(done_idxes) > 0:
+            if len(done_idxes) > 0:  # bug fixed, add len(done_idxes)
                 test_player.init_states(reset_envs=done_idxes, num_envs=num_envs)
 
         if self.config.render_mode == "rgb_array" and self.render:

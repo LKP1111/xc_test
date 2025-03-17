@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # 文件路径 (保持不变)
-# 'dreamerv3/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-0.csv'
+# 'CartPole/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-0.csv'
 file_path_0 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-0.csv'
 file_path_1 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-1.csv'
 file_path_2 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-2.csv'
