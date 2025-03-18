@@ -724,7 +724,7 @@ class MultiDecoder(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         reconstructed_obs = None
         if self.cnn_decoder is not None:
-            reconstructed_obs = self.cnn_decoder(x)
+            reconstructed_obs = self.cnn_decoder(x)[0]
         if self.mlp_decoder is not None:
             reconstructed_obs = self.mlp_decoder(x)
         return reconstructed_obs

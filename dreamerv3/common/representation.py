@@ -776,6 +776,8 @@ class DreamerV3WorldModel(nn.Module):
         for policy: world_model, actor, critic, target_critic
         for agent: player
         """
+        if self.config.pixel:
+            self.obs_space = gym.spaces.Box(0, 255, ((self.obs_space.shape[2], ) + self.obs_space.shape[:2]), np.uint8)
         self.world_model, self.actor, self.critic, self.target_critic, self.player = (
             DreamerV3WorldModel._build_model(
                 self.actions_dim,
@@ -844,6 +846,7 @@ class DreamerV3WorldModel(nn.Module):
                 layer_norm_cls=LayerNorm,
                 layer_norm_kw=world_model_config.encoder.mlp_layer_norm.kw,
             )
+            if not config.pixel else None
             # if config.mlp_keys.encoder is not None and len(config.mlp_keys.encoder) > 0
             # else None
         )
@@ -932,6 +935,7 @@ class DreamerV3WorldModel(nn.Module):
                 layer_norm_cls=LayerNorm,
                 layer_norm_kw=world_model_config.observation_model.mlp_layer_norm.kw,
             )
+            if not config.pixel else None
             # if config.mlp_keys.decoder is not None and len(config.mlp_keys.decoder) > 0
             # else None
         )

@@ -7,14 +7,14 @@ from xuance.environment import make_envs
 from common import DreamerV3Agent
 
 def parse_args():
-    parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for CartPole.")
-    parser.add_argument("--env-id", type=str, default="CartPole-v1")
-    parser.add_argument("--running-steps", type=int, default=100_000)
-    parser.add_argument("--eval-interval", type=int, default=1_000)
+    parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Atari.")
+    parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
+    parser.add_argument("--running-steps", type=int, default=5000_000)
+    parser.add_argument("--eval-interval", type=int, default=1_0000)
     parser.add_argument('--parallels', type=int, default=4)
     # parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--device", type=str, default="cuda:0")
-    parser.add_argument("--replay-ratio", type=int, default=1)
+    parser.add_argument("--replay-ratio", type=int, default=0.025)
 
     parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--benchmark", type=int, default=1)
@@ -30,7 +30,7 @@ def parse_args():
 
 if __name__ == '__main__':
     parser = parse_args()
-    configs_dict = get_configs(file_dir="config/CartPole-v1.yaml")
+    configs_dict = get_configs(file_dir="config/atari.yaml")
     configs_dict = recursive_dict_update(configs_dict, parser.__dict__)
     configs = argparse.Namespace(**configs_dict)
 

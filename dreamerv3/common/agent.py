@@ -37,6 +37,9 @@ class DreamerV3Agent(OffPolicyAgent):
 
         # obs_shape & act_shape
         self.obs_shape = self.observation_space.shape
+        """hwc 2 chw; agent 和 memory 用 hwc, sample 以及 action 前转成 chw 並 normalize"""
+        if self.config.pixel:
+            self.obs_shape = (self.obs_shape[2], ) + self.obs_shape[:2]
         if not self.is_continuous:
             self.act_shape = self.action_space.n  # TODO
             self.config.act_shape = self.act_shape
@@ -106,23 +109,25 @@ class DreamerV3Agent(OffPolicyAgent):
         return REGISTRY_Policy["DreamerV3Policy"](self.model, self.config)
 
     def action(self,
-               observations: np.ndarray,
+               obs: np.ndarray,
                test_mode: Optional[bool] = False,
                player: Optional[PlayerDV3] = None) -> np.ndarray:
         """Returns actions and values.
 
         Parameters:
-            observations (np.ndarray): The observation.
+            obs (np.ndarray): The observation.
             test_mode (Optional[bool]): True for testing without noises.
             player (Optional[PlayerDV3]): The player whose action is taken, default is train_player.
 
         Returns:
             actions: The actions to be executed.
         """
+        if self.config.pixel:
+            obs = obs.transpose(0, 3, 1, 2) / 255.0 - 0.5
         player = player if player is not None else self.train_player
         # actions_output = self.policy(observations)
         # [envs, *obs_shape] -> [1: batch, envs, *obs_shape]
-        obs = torch.as_tensor(observations, device=self.device).unsqueeze(0)
+        obs = torch.as_tensor(obs, device=self.device, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
             actions = player.get_actions(obs, greedy=test_mode, mask=None)[0][0]
         # ont-hot -> real_actions
@@ -139,6 +144,8 @@ class DreamerV3Agent(OffPolicyAgent):
     def train_epochs(self, n_epochs: int = 1):
         train_info = {}
         samples = self.memory.sample(self.config.seq_len)  # (envs, seq, batch, ~)
+        if self.config.pixel:
+            samples['obs'] = samples['obs'].transpose(0, 1, 2, 5, 3, 4) / 255.0 - 0.5
         # n_epoch(n_gradient step) scattered to each environment
         st = np.random.choice(np.arange(self.envs.num_envs), 1).item()
         for _ in range(n_epochs):  # assert n_epochs == parallels

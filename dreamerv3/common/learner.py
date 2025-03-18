@@ -53,7 +53,7 @@ class DreamerV3Learner(Learner):
         if self.gradient_step % self.soft_update_freq == 0:
             self.policy.soft_update(self.tau)
         # [seq, batch, ~]  # checked
-        obs = torch.as_tensor(samples['obs'], device=self.device)
+        obs = torch.as_tensor(samples['obs'], device=self.device, dtype=torch.float32)
         acts = torch.as_tensor(samples['acts'], device=self.device)
         # acts to one_hot [seq, batch, action_size]
         acts = nn.functional.one_hot(acts.long(), num_classes=self.action_shape).float()
