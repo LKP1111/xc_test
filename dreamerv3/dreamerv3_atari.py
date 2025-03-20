@@ -1,6 +1,9 @@
 import argparse
 import numpy as np
 from copy import deepcopy
+
+from jumpy.numpy import float32
+
 from xuance.torch.utils.operations import set_seed
 from xuance.common import get_configs, recursive_dict_update
 from xuance.environment import make_envs
@@ -9,13 +12,19 @@ from common import DreamerV3Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Atari.")
     parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
-    parser.add_argument("--running-steps", type=int, default=5000_000)
-    parser.add_argument("--eval-interval", type=int, default=1_0000)
-    parser.add_argument('--parallels', type=int, default=4)
+    # parser.add_argument("--env-id", type=str, default="ALE/Breakout-v5")
+    parser.add_argument("--log-dir", type=str, default="./logs/Pong-v5/")
+    parser.add_argument("--model-dir", type=str, default="./models/Pong-v5/")
+
+    parser.add_argument("--running-steps", type=int, default=5_000_000)
+    parser.add_argument("--eval-interval", type=int, default=100_000)  # 50 条数据应该差不多
     # parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--replay-ratio", type=int, default=0.025)
+    # parser.add_argument("--replay-ratio", type=float32, default=0.25)
 
+    parser.add_argument('--parallels', type=int, default=4)
+    # parser.add_argument('--parallels', type=int, default=1)
     parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--benchmark", type=int, default=1)
 

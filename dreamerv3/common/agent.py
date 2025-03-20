@@ -175,14 +175,15 @@ class DreamerV3Agent(OffPolicyAgent):
             (o2, a1, r2, term2, trunc2, is_first2)
             """
             is_first = np.zeros_like(terms)
+            prev_obs_for_atari_term = obs
             obs = next_obs
             self.returns = self.gamma * self.returns + rews
-
+            atari_term_idxes = []
             done_idxes = []
             for i in range(self.n_envs):
                 if terms[i] or truncs[i]:
                     if self.atari and (~truncs[i]):  # do not term until trunc
-                        pass
+                        atari_term_idxes.append(i)
                     else:
                         # carry the reset procedure to the outside
                         done_idxes.append(i)
@@ -200,7 +201,16 @@ class DreamerV3Agent(OffPolicyAgent):
                         return_info.update(step_info)
             self.current_step += self.n_envs
             # self._update_explore_factor()
-
+            # one more frame for atari_term
+            if len(atari_term_idxes) > 0:
+                acts[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+                self.memory.store(prev_obs_for_atari_term, acts, self._process_reward(rews), terms, truncs, is_first)
+                """reset DreamerV3 Player's states"""
+                rews[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+                terms[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+                truncs[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+                is_first[atari_term_idxes] = np.ones_like(terms[atari_term_idxes])
+                self.train_player.init_states(atari_term_idxes)
             # TODO when an env is done, one more frame need to be stored, which may cause problem to other envs
             if len(done_idxes) > 0:
                 """
@@ -259,11 +269,12 @@ class DreamerV3Agent(OffPolicyAgent):
                     videos[idx].append(img)
 
             obs = deepcopy(next_obs)
+            atari_term_idxes = []
             done_idxes = []
             for i in range(num_envs):
                 if terms[i] or truncs[i]:
                     if self.atari and (~truncs[i]):
-                        pass
+                        atari_term_idxes.append(i)
                     else:
                         done_idxes.append(i)  # bug fixed, add done_idxes.append
                         obs[i] = infos[i]["reset_obs"]
@@ -274,6 +285,8 @@ class DreamerV3Agent(OffPolicyAgent):
                             episode_videos = videos[i].copy()
                         if self.config.test_mode:
                             print("Episode: %d, Score: %.2f" % (current_episode, infos[i]["episode_score"]))
+            if len(atari_term_idxes) > 0:
+                test_player.init_states(reset_envs=atari_term_idxes, num_envs=num_envs)
             if len(done_idxes) > 0:  # bug fixed, add len(done_idxes)
                 test_player.init_states(reset_envs=done_idxes, num_envs=num_envs)
 
