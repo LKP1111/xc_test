@@ -147,7 +147,8 @@ class DreamerV3Agent(OffPolicyAgent):
         if self.config.pixel:
             samples['obs'] = samples['obs'].transpose(0, 1, 2, 5, 3, 4) / 255.0 - 0.5
         # n_epoch(n_gradient step) scattered to each environment
-        st = np.random.choice(np.arange(self.envs.num_envs), 1).item()
+        # st = np.random.choice(np.arange(self.envs.num_envs), 1).item()  # 去掉这个, 感觉训练顺序没必要
+        st = 0
         for _ in range(n_epochs):  # assert n_epochs == parallels
             cur_samples = {k: v[(st + _) % self.envs.num_envs] for k, v in samples.items()}
             train_info = self.learner.update(**cur_samples)
@@ -165,7 +166,12 @@ class DreamerV3Agent(OffPolicyAgent):
             step_info = {}
             self.obs_rms.update(obs)  # ?
             obs = self._process_observation(obs)  # obs_norm
-            acts = self.action(obs)
+            if self.current_step < self.start_training:  # ramdom_sample before training
+                acts = np.array([self.envs.action_space.sample() for _ in range(self.envs.num_envs)])
+            else:
+                acts = self.action(obs)
+            if self.atari:  # 在 xc_atari 中, 用 truncs 推理和训练
+                terms = deepcopy(truncs)
             """(o1, a1, r1, term1, trunc1, is_first1), act: not one-hot"""
             self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
             # self._squeeze_and_store([])
@@ -175,7 +181,7 @@ class DreamerV3Agent(OffPolicyAgent):
             (o2, a1, r2, term2, trunc2, is_first2)
             """
             is_first = np.zeros_like(terms)
-            prev_obs_for_atari_term = obs
+            # prev_obs_for_atari_term = obs
             obs = next_obs
             self.returns = self.gamma * self.returns + rews
             atari_term_idxes = []
@@ -202,15 +208,15 @@ class DreamerV3Agent(OffPolicyAgent):
             self.current_step += self.n_envs
             # self._update_explore_factor()
             # one more frame for atari_term
-            if len(atari_term_idxes) > 0:
-                acts[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-                self.memory.store(prev_obs_for_atari_term, acts, self._process_reward(rews), terms, truncs, is_first)
-                """reset DreamerV3 Player's states"""
-                rews[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-                terms[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-                truncs[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-                is_first[atari_term_idxes] = np.ones_like(terms[atari_term_idxes])
-                self.train_player.init_states(atari_term_idxes)
+            # if len(atari_term_idxes) > 0:
+            #     acts[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+            #     self.memory.store(prev_obs_for_atari_term, acts, self._process_reward(rews), terms, truncs, is_first)
+            #     """reset DreamerV3 Player's states"""
+            #     rews[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+            #     terms[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+            #     truncs[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
+            #     is_first[atari_term_idxes] = np.ones_like(terms[atari_term_idxes])
+            #     self.train_player.init_states(atari_term_idxes)
             # TODO when an env is done, one more frame need to be stored, which may cause problem to other envs
             if len(done_idxes) > 0:
                 """
@@ -218,6 +224,8 @@ class DreamerV3Agent(OffPolicyAgent):
                 (o_t, a_t = 0 for dones, r_t, term_t, trunc_t, is_first_t)
                 """
                 acts[done_idxes] = np.zeros((len(done_idxes), ))
+                if self.atari:  # 在 xc_atari 中, 用 truncs 推理和训练
+                    terms = deepcopy(truncs)
                 self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
                 # self._squeeze_and_store([obs, acts, self._process_reward(rews), terms, truncs, is_first])
 
@@ -285,15 +293,15 @@ class DreamerV3Agent(OffPolicyAgent):
                             episode_videos = videos[i].copy()
                         if self.config.test_mode:
                             print("Episode: %d, Score: %.2f" % (current_episode, infos[i]["episode_score"]))
-            if len(atari_term_idxes) > 0:
-                test_player.init_states(reset_envs=atari_term_idxes, num_envs=num_envs)
+            # if len(atari_term_idxes) > 0:
+            #     test_player.init_states(reset_envs=atari_term_idxes, num_envs=num_envs)
             if len(done_idxes) > 0:  # bug fixed, add len(done_idxes)
                 test_player.init_states(reset_envs=done_idxes, num_envs=num_envs)
 
         if self.config.render_mode == "rgb_array" and self.render:
             # time, height, width, channel -> time, channel, height, width
             videos_info = {"Videos_Test": np.array([episode_videos], dtype=np.uint8).transpose((0, 1, 4, 2, 3))}
-            self.log_videos(info=videos_info, fps=self.fps, x_index=self.current_step)
+            self.log_videos(info=videos_info, fps=self.fps, x_index=self.current_step)  # TODO 这里 fps 设置了没效果
 
         if self.config.test_mode:
             print("Best Score: %.2f" % best_score)
@@ -305,6 +313,7 @@ class DreamerV3Agent(OffPolicyAgent):
         self.log_infos(test_info, self.current_step)
 
         test_envs.close()
+
 
         return scores
 
