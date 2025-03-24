@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from collections import deque
+from ale_py import ALEInterface
 try:
     import cv2
 except ImportError:
@@ -133,6 +134,9 @@ class Atari_Env(gym.Wrapper):
         self._render_mode = config.render_mode
         self._episode_step = 0
 
+        # added for faster training - LKP
+        self.action_repeat = config.action_repeat
+
     def close(self):
         self.env.close()
 
@@ -168,7 +172,14 @@ class Atari_Env(gym.Wrapper):
         return self._get_obs(), info
 
     def step(self, actions):
-        observation, reward, terminated, truncated, info = self.env.step(actions)
+        # added for faster training - LKP
+        total_rew, step, done = 0, 0, False
+        while step < self.action_repeat and not done:
+            observation, reward, terminated, truncated, info = self.env.step(actions)
+            # total_rew += self.reward(reward)
+            total_rew += reward
+            step += 1
+            done = terminated or truncated
         self.frames.append(self.observation(observation))
         lives = self.env.ale.lives()
         # avoid environment bug
@@ -180,8 +191,9 @@ class Atari_Env(gym.Wrapper):
             terminated = True
         truncated = self.was_real_done
         self.lifes = lives
-        self._episode_step += 1
-        return self._get_obs(), self.reward(reward), terminated, truncated, info
+        self._episode_step += step  # added for faster training - LKP
+        # return self._get_obs(), self.reward(total_rew), terminated, truncated, info
+        return self._get_obs(), total_rew, terminated, truncated, info
 
     def _get_obs(self):
         assert len(self.frames) == self.num_stack
