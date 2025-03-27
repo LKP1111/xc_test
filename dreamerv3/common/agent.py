@@ -256,7 +256,8 @@ class DreamerV3Agent(OffPolicyAgent):
     def test(self, env_fn, test_episodes: int) -> list:
         test_envs = env_fn()
         num_envs = test_envs.num_envs
-        test_player = deepcopy(self.train_player)  # copy the total network for test
+        # copy the total network for test
+        test_player = deepcopy(self.train_player)
         test_player.init_states(num_envs=num_envs)
         videos, episode_videos = [[] for _ in range(num_envs)], []
         current_episode, scores, best_score = 0, [], -np.inf
@@ -265,8 +266,8 @@ class DreamerV3Agent(OffPolicyAgent):
             images = test_envs.render(self.config.render_mode)
             for idx, img in enumerate(images):
                 videos[idx].append(img)
-
-        while current_episode < test_episodes:
+        is_done = np.zeros(num_envs)
+        while is_done.sum() < test_episodes:
             self.obs_rms.update(obs)
             obs = self._process_observation(obs)
             acts = self.action(obs, test_mode=True, player=test_player)
@@ -286,8 +287,11 @@ class DreamerV3Agent(OffPolicyAgent):
                     else:
                         done_idxes.append(i)  # bug fixed, add done_idxes.append
                         obs[i] = infos[i]["reset_obs"]
-                        scores.append(infos[i]["episode_score"])
-                        current_episode += 1
+                        if is_done[i] != 1:
+                            is_done[i] = 1
+                            scores.append(infos[i]["episode_score"])
+                        # current_episode += 1  # TODO (每结束一个环境就+1, 若一个环境结束多次呢??就会占用的多个分数)
+
                         if best_score < infos[i]["episode_score"]:
                             best_score = infos[i]["episode_score"]
                             episode_videos = videos[i].copy()

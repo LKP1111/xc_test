@@ -774,7 +774,7 @@ class DreamerV3WorldModel(nn.Module):
         self.obs_space = obs_space
         """
         for policy: world_model, actor, critic, target_critic
-        for agent: player
+        for agent: player (link to policy.world_model.~ & policy.actor)
         """
         if self.config.pixel:
             self.obs_space = gym.spaces.Box(0, 255, ((self.obs_space.shape[2], ) + self.obs_space.shape[:2]), np.uint8)

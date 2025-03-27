@@ -11,35 +11,41 @@ from common import DreamerV3Agent
 
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Atari.")
-    # parser.add_argument("--env-id", type=str, default="ALE/KungFuMaster-v5")
-    parser.add_argument("--env-id", type=str, default="ALE/MsPacman-v5")
-    parser.add_argument("--log-dir", type=str, default="./logs/MsPacman-v5/")
-    parser.add_argument("--model-dir", type=str, default="./models/MsPacman-v5/")
-
-    # action_repeat = 1
-    # parser.add_argument("--running-steps", type=int, default=10_000_000)
-    # parser.add_argument("--eval-interval", type=int, default=200_000)  # 50 条数据应该差不多
-
-    # action_repeat = 4; 100k
-    parser.add_argument("--running-steps", type=int, default=100_000)
-    parser.add_argument("--eval-interval", type=int, default=2_000)  # 50 条数据应该差不多
+    parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
+    parser.add_argument("--log-dir", type=str, default="./logs/Pong-v5/")
+    parser.add_argument("--model-dir", type=str, default="./models/Pong-v5/")
     parser.add_argument("--device", type=str, default="cuda:0")
-    parser.add_argument("--replay-ratio", type=int, default=1)
-    # parser.add_argument("--replay-ratio", type=float32, default=0.25)
-
-    # parser.add_argument('--parallels', type=int, default=4)
-    parser.add_argument('--parallels', type=int, default=1)
-    parser.add_argument("--test", type=int, default=0)
-    parser.add_argument("--benchmark", type=int, default=1)
     # parser.add_argument("--render", type=bool, default=True)  # test_video_log
 
+    """env = 1, action_repeat = 4"""
+    # atari5M, ratio=0.03125, gradient_step=156.25k, 14h
+    # parser.add_argument("--running-steps", type=int, default=5_000_000)  # 5M
+    # parser.add_argument("--eval-interval", type=int, default=100_000)
+    # parser.add_argument("--replay-ratio", type=int, default=0.03125)
+
+    # atari1M, ratio=1/8=0.125, gradient_step=125k, ?h
+    # parser.add_argument("--running-steps", type=int, default=1_000_000)  # 1M
+    # parser.add_argument("--eval-interval", type=int, default=20_000)
+    # parser.add_argument("--replay-ratio", type=int, default=0.125)
+
+    # atari100k, ratio=1, gradient_step=100k, 5.5h
+    # parser.add_argument("--running-steps", type=int, default=100_000)  # 100k
+    # parser.add_argument("--eval-interval", type=int, default=2_000)  # 50 条数据应该差不多
+    # parser.add_argument("--replay-ratio", type=int, default=1)
+
+    # parallels & benchmark
+    # parser.add_argument('--parallels', type=int, default=1)
+    # parser.add_argument("--test", type=int, default=0)
+    # parser.add_argument("--benchmark", type=int, default=1)
+
     # render test
-    # parser.add_argument("--render", type=bool, default=True)
-    # parser.add_argument("--render_mode", type=str, default='human')
-    # parser.add_argument("--parallels", type=int, default=1)
-    # parser.add_argument("--test-episode", type=int, default=1)
-    # parser.add_argument("--test", type=int, default=1)
-    # parser.add_argument("--benchmark", type=int, default=0)
+    parser.add_argument("--env_seed", type=int, default=1)
+    parser.add_argument("--render", type=bool, default=True)
+    parser.add_argument("--render_mode", type=str, default='human')
+    parser.add_argument("--parallels", type=int, default=1)
+    parser.add_argument("--test-episode", type=int, default=1)
+    parser.add_argument("--test", type=int, default=1)
+    parser.add_argument("--benchmark", type=int, default=0)
     return parser.parse_args()
 
 
@@ -83,7 +89,10 @@ if __name__ == '__main__':
             Agent.train(eval_interval)
             test_scores = Agent.test(env_fn, test_episode)
 
-            if np.mean(test_scores) > best_scores_info["mean"]:
+            can_save = np.mean(test_scores) > best_scores_info["mean"]
+            can_save |= (abs(np.mean(test_scores) - best_scores_info["mean"]) < 1e-6
+                         and np.std(test_scores) < best_scores_info["std"])
+            if can_save:
                 best_scores_info = {"mean": np.mean(test_scores),
                                     "std": np.std(test_scores),
                                     "step": Agent.current_step}
@@ -97,9 +106,11 @@ if __name__ == '__main__':
                 configs.parallels = configs.test_episode
                 return make_envs(configs)
 
-
-            Agent.load_model(path=Agent.model_dir_load)
+            model = None
+            # model = 'seed_1_2025_0325_012325'
+            Agent.load_model(path=Agent.model_dir_load, model=model)
             scores = Agent.test(env_fn, configs.test_episode)
+            print(f'scores: {scores}')
             print(f"Mean Score: {np.mean(scores)}, Std: {np.std(scores)}")
             print("Finish testing.")
         else:
