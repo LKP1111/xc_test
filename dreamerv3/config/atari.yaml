@@ -19,9 +19,8 @@ env_seed: 1
 obs_type: "grayscale"  # choice for Atari env: ram, rgb, grayscale
 img_size: [64, 64]  # default is 210 x 160 in gym[Atari]
 num_stack: 1  # frame stack trick
-frame_skip: 1  # frame skip trick
+frame_skip: 4  # frame skip trick  (action_repeat)
 noop_max: 30
-action_repeat: 4  # added for faster training
 representation: "DreamerV3WorldModel"
 learner: "DreamerV3Learner"
 policy: "DreamerV3Policy"
