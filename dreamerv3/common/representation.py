@@ -518,7 +518,7 @@ class Actor(nn.Module):
     def __init__(
             self,
             latent_state_size: int,
-            actions_dim: int,
+            actions_dim: Sequence[int],
             is_continuous: bool,
             distribution_config: Dict[str, Any],
             init_std: float = 0.0,
@@ -590,7 +590,7 @@ class Actor(nn.Module):
         out: Tensor = self.model(state)
         pre_dist: List[Tensor] = [head(out) for head in self.mlp_heads]
         if self.is_continuous:
-            mean, std = torch.chunk(pre_dist[0], 2, -1)
+            mean, std = torch.chunk(pre_dist[0], 2, -1)  # [1, 3, 2] 按最后一维解成两个包
             if self.distribution == "tanh_normal":
                 mean = 5 * torch.tanh(mean / 5)
                 std = F.softplus(std + self.init_std) + self.min_std
@@ -603,20 +603,25 @@ class Actor(nn.Module):
                 std = (self.max_std - self.min_std) * torch.sigmoid(std + self.init_std) + self.min_std
                 dist = Normal(torch.tanh(mean), std)
                 actions_dist = Independent(dist, 1)
+            else:
+                actions_dist = None
             if not greedy:
                 actions = actions_dist.rsample()
-            else:
-                sample = actions_dist.sample((100,))
-                log_prob = actions_dist.log_prob(sample)
-                actions = sample[log_prob.argmax(0)].view(1, 1, -1)
+            else:  # TODO, 这里 sheeprl 写得太搞了, 为什么不直接返回均值 ? 而且最后 shape 也不对; 我直接改成 mode 了
+                actions = actions_dist.mode
+                # sample = actions_dist.sample((100,))
+                # log_prob = actions_dist.log_prob(sample)
+                # actions = sample[log_prob.argmax(0)].view(1, 1, -1)
             if self._action_clip > 0.0:
                 action_clip = torch.full_like(actions, self._action_clip)
                 actions = actions * (action_clip / torch.maximum(action_clip, torch.abs(actions))).detach()
             actions = [actions]
             actions_dist = [actions_dist]
         else:
-            actions_dist: List[Distribution] = []
-            actions: List[Tensor] = []
+            # actions_dist: List[Distribution] = []
+            # actions: List[Tensor] = []
+            actions_dist = []
+            actions = []
             for logits in pre_dist:
                 actions_dist.append(OneHotCategoricalStraightThrough(logits=self._uniform_mix(logits)))
                 if not greedy:
@@ -695,7 +700,7 @@ class PlayerDV3(nn.Module):
                 If None, then it will be self.num_envs  # prop added to deal with xuance test
         """
         num_envs = num_envs if num_envs else self.num_envs  # added to deal with xuance test
-        if reset_envs is None or len(reset_envs) == 0:
+        if reset_envs is None or len(reset_envs) == 0:  # reset all
             self.actions = torch.zeros(1, num_envs, np.sum(self.actions_dim), device=self.device)
             self.recurrent_state, stochastic_state = self.rssm.get_initial_states((1, num_envs))
             self.stochastic_state = stochastic_state.reshape(1, num_envs, -1)

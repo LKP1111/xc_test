@@ -20,6 +20,7 @@ class DreamerV3Learner(Learner):
 
         # config
         self.config = dotdict(vars(config))
+        self.is_continuous = self.config.is_continuous
         self.tau = self.config.critic.tau
         self.gamma = self.config.gamma
         self.soft_update_freq = self.config.critic.soft_update_freq
@@ -55,8 +56,9 @@ class DreamerV3Learner(Learner):
         # [seq, batch, ~]  # checked
         obs = torch.as_tensor(samples['obs'], device=self.device, dtype=torch.float32)
         acts = torch.as_tensor(samples['acts'], device=self.device)
-        # acts to one_hot [seq, batch, action_size]
-        acts = nn.functional.one_hot(acts.long(), num_classes=self.action_shape).float()
+        if not self.is_continuous:
+            # acts to one_hot [seq, batch, action_size]
+            acts = nn.functional.one_hot(acts.long(), num_classes=self.action_shape).float()
         rews = torch.as_tensor(samples['rews'], device=self.device)
         terms = torch.as_tensor(samples['terms'], device=self.device)  # no use
         truncs = torch.as_tensor(samples['truncs'], device=self.device)

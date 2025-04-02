@@ -40,9 +40,8 @@ class DreamerV3Agent(OffPolicyAgent):
         """hwc 2 chw; agent 和 memory 用 hwc, sample 以及 action 前转成 chw 並 normalize"""
         if self.config.pixel:
             self.obs_shape = (self.obs_shape[2], ) + self.obs_shape[:2]
-        if not self.is_continuous:
-            self.act_shape = self.action_space.n  # TODO
-            self.config.act_shape = self.act_shape
+        self.act_shape = self.action_space.n if not self.is_continuous else self.action_space.shape
+        self.config.act_shape = self.act_shape  # add to config
 
         # ratio
         self.replay_ratio = self.config.replay_ratio
@@ -133,11 +132,11 @@ class DreamerV3Agent(OffPolicyAgent):
         # ont-hot -> real_actions
         if not self.is_continuous:
             actions = actions.argmax(dim=1).detach().cpu().numpy()
-        else:
-            actions = actions.detach().cpu().numpy()  # TODO continuous action
-        # TODO not test_mode exploration
+        else:  # [1, envs, *act_shape]
+            actions = actions.reshape(obs.shape[1], *self.act_shape).detach().cpu().numpy()
+            actions = (actions + 1.0) * 0.5 * (self.actions_high - self.actions_low) + self.actions_low  # action_scaling
         """
-        for env_interaction: actions.shape, (envs, )
+        for env_interaction: actions.shape, (envs, ) or (env, *act_shape)
         """
         return actions
 

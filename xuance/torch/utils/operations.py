@@ -66,6 +66,13 @@ def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+    # TODO added for deterministic
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+    # # cuda env
+    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    # os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+
 
 def get_flat_grad(y: torch.Tensor, model: nn.Module) -> torch.Tensor:
     """Computes and flattens the gradients of a given loss tensor with respect to model parameters.

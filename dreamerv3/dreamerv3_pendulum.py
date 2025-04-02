@@ -10,28 +10,18 @@ from xuance.environment import make_envs
 from common import DreamerV3Agent
 
 def parse_args():
-    parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Atari.")
-    parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
-    parser.add_argument("--log-dir", type=str, default="./dataset/50m_sheeprl/logs/Pong-v5/")
-    parser.add_argument("--model-dir", type=str, default="./dataset/50m_sheeprl/models/Pong-v5/")
+    parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Pendulum.")
+    parser.add_argument("--env-id", type=str, default="Pendulum-v1")
+    parser.add_argument("--log-dir", type=str, default="./dataset/50m_sheeprl/logs/Pendulum-v1/")
+    parser.add_argument("--model-dir", type=str, default="./dataset/50m_sheeprl/models/Pendulum-v1/")
     parser.add_argument("--device", type=str, default="cuda:0")
     # parser.add_argument("--render", type=bool, default=True)  # test_video_log
 
-    """env = 1, action_repeat = 4, 50m.yaml"""
-    # atari5M, ratio=0.03125, gradient_step=156.25k, ??
-    # parser.add_argument("--running-steps", type=int, default=5_000_000)  # 5M
-    # parser.add_argument("--eval-interval", type=int, default=100_000)
-    # parser.add_argument("--replay-ratio", type=int, default=0.03125)
-
-    # atari1M, ratio=1/8=0.125, gradient_step=125k, ??
-    # parser.add_argument("--running-steps", type=int, default=1_000_000)  # 1M
-    # parser.add_argument("--eval-interval", type=int, default=20_000)
-    # parser.add_argument("--replay-ratio", type=int, default=0.125)
-
-    # atari100k, ratio=1, gradient_step=100k, sheeprl 5.5h; official ratio = 0.25 2.5h
-    # parser.add_argument("--running-steps", type=int, default=100_000)  # 100k
-    # parser.add_argument("--eval-interval", type=int, default=2_000)  # 50 条数据应该差不多
-    # parser.add_argument("--replay-ratio", type=int, default=1)
+    """env = 1, 50m_sheeprl.yaml"""
+    # 10k
+    parser.add_argument("--running-steps", type=int, default=10_000)  # 10k
+    parser.add_argument("--eval-interval", type=int, default=200)  # 50 条数据应该差不多
+    parser.add_argument("--replay-ratio", type=int, default=1)
 
     # parallels & benchmark
     # parser.add_argument('--parallels', type=int, default=1)
@@ -39,7 +29,7 @@ def parse_args():
     # parser.add_argument("--benchmark", type=int, default=1)
 
     # render test
-    parser.add_argument("--env_seed", type=int, default=1)
+    parser.add_argument("--env_seed", type=int, default=2)
     parser.add_argument("--render", type=bool, default=True)
     parser.add_argument("--render_mode", type=str, default='human')
     parser.add_argument("--parallels", type=int, default=1)
@@ -52,7 +42,7 @@ def parse_args():
 if __name__ == '__main__':
     # print(sys.path)  # python path
     parser = parse_args()
-    configs_dict = get_configs(file_dir="config/atari.yaml")
+    configs_dict = get_configs(file_dir="config/Pendulum-v1.yaml")
     configs_dict = recursive_dict_update(configs_dict, parser.__dict__)
     configs = argparse.Namespace(**configs_dict)
 
@@ -120,11 +110,3 @@ if __name__ == '__main__':
             print("Finish training!")
 
     Agent.finish()
-
-
-"""
-50m_sheeprl_time
-    atari5M, ratio=0.03125, gradient_step=156.25k, 14h
-    atari1M, ratio=1/8=0.125, gradient_step=125k, 11h
-    atari100k, ratio=1, gradient_step=100k, 5.5h
-"""

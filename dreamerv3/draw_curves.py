@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 
 # 文件路径 (保持不变)
 # 'CartPole/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-0.csv'
-file_path_0 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-0.csv'
-file_path_1 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-1.csv'
-file_path_2 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-2.csv'
-file_path_3 = './logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-3.csv'
+file_path_0 = 'dataset/50m_sheeprl/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-0.csv'
+file_path_1 = 'dataset/50m_sheeprl/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-1.csv'
+file_path_2 = 'dataset/50m_sheeprl/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-2.csv'
+file_path_3 = 'dataset/50m_sheeprl/logs/datas/CartPole, 1h, 1w6, avg 500/Train-Episode-Rewards_rank_0_env-3.csv'
 
 file_paths = [file_path_0, file_path_1, file_path_2, file_path_3]
 

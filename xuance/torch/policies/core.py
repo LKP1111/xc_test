@@ -401,8 +401,8 @@ class GaussianActorNet(Module):
             layers.extend(mlp)
         layers.extend(mlp_block(input_shape[0], action_dim, None, activation_action, initialize, device)[0])
         self.mu = nn.Sequential(*layers)
-        self.logstd = nn.Parameter(-torch.ones((action_dim,), device=device))
-        self.dist = DiagGaussianDistribution(action_dim)
+        self.logstd = nn.Parameter(-torch.ones((action_dim,), device=device))  # 初始全是 -1.0, 参数可学习
+        self.dist = DiagGaussianDistribution(action_dim)  # 对角高斯分布 N(mu, I), mu: (-1, 1)
 
     def forward(self, x: Tensor):
         """

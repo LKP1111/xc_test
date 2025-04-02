@@ -23,7 +23,7 @@ class DreamerV3Policy(nn.Module):  # checked
         self.recurrent_state_size = self.config.world_model.recurrent_model.recurrent_state_size
         self.device = self.config.device
         self.is_continuous = self.config.is_continuous
-        self.actions_dim = self.config.act_shape
+        self.actions_dim = np.sum(self.config.act_shape)  # continuous: num of action props; discrete: num of actions
 
         # nets
         self.model: nn.Module = model

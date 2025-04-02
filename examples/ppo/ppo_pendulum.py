@@ -10,8 +10,15 @@ from xuance.torch.agents import PPOCLIP_Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: PPO for Pendulum.")
     parser.add_argument("--env-id", type=str, default="Pendulum-v1")
-    parser.add_argument("--test", type=int, default=0)
-    parser.add_argument("--benchmark", type=int, default=1)
+
+    # parser.add_argument("--test", type=int, default=0)
+    # parser.add_argument("--benchmark", type=int, default=1)
+
+    parser.add_argument("--test", type=int, default=1)
+    parser.add_argument("--benchmark", type=int, default=0)
+    parser.add_argument("--render", type=bool, default=True)
+    parser.add_argument("--render_mode", type=str, default='human')
+    parser.add_argument("--test_episode", type=int, default=1)
 
     return parser.parse_args()
 
