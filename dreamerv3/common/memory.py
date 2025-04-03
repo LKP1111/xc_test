@@ -82,7 +82,7 @@ class SequentialReplayBuffer(Buffer):
                 indices,
                 np.arange(self.ptr, second_range_end)
             ])
-        li = []  # TODO check indices validation?
+        li = []
         for _ in range(self.n_envs):
             start = np.random.choice(indices, size=self.batch_size).reshape(-1, 1)  # (batch, 1)
             seq_arange = np.arange(seq_len, dtype=np.intp).reshape(1, -1)  # (1, seq)

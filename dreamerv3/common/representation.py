@@ -1,6 +1,4 @@
-# from __future__ import annotations
 import copy
-from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import gymnasium as gym
@@ -590,7 +588,7 @@ class Actor(nn.Module):
         out: Tensor = self.model(state)
         pre_dist: List[Tensor] = [head(out) for head in self.mlp_heads]
         if self.is_continuous:
-            mean, std = torch.chunk(pre_dist[0], 2, -1)  # [1, 3, 2] 按最后一维解成两个包
+            mean, std = torch.chunk(pre_dist[0], 2, -1)
             if self.distribution == "tanh_normal":
                 mean = 5 * torch.tanh(mean / 5)
                 std = F.softplus(std + self.init_std) + self.min_std
@@ -607,19 +605,14 @@ class Actor(nn.Module):
                 actions_dist = None
             if not greedy:
                 actions = actions_dist.rsample()
-            else:  # TODO, 这里 sheeprl 写得太搞了, 为什么不直接返回均值 ? 而且最后 shape 也不对; 我直接改成 mode 了
+            else:
                 actions = actions_dist.mode
-                # sample = actions_dist.sample((100,))
-                # log_prob = actions_dist.log_prob(sample)
-                # actions = sample[log_prob.argmax(0)].view(1, 1, -1)
             if self._action_clip > 0.0:
                 action_clip = torch.full_like(actions, self._action_clip)
                 actions = actions * (action_clip / torch.maximum(action_clip, torch.abs(actions))).detach()
             actions = [actions]
             actions_dist = [actions_dist]
         else:
-            # actions_dist: List[Distribution] = []
-            # actions: List[Tensor] = []
             actions_dist = []
             actions = []
             for logits in pre_dist:
@@ -646,12 +639,12 @@ class PlayerDV3(nn.Module):
     Args:
         encoder (MultiEncoder): the encoder.
         rssm (RSSM): the RSSM model.
-        actor (_FabricModule): the actor.
+        actor (Module): the actor.
         actions_dim (Sequence[int]): the dimension of the actions.
         num_envs (int): the number of environments.
         stochastic_size (int): the size of the stochastic state.
         recurrent_state_size (int): the size of the recurrent state.
-        transition_model (_FabricModule): the transition model.
+        transition_model (Module): the transition model.
         discrete_size (int): the dimension of a single Categorical variable in the
             stochastic state (prior or posterior).
             Defaults to 32.
@@ -684,7 +677,8 @@ class PlayerDV3(nn.Module):
         self.device = device
         self.discrete_size = discrete_size
         self.actor_type = actor_type
-        # self. = isinstance(rssm, DecoupledRSSM)
+
+        self.actions, self.recurrent_state, self.stochastic_state = [None] * 3
 
     @torch.no_grad()
     def init_states(self,
@@ -722,7 +716,7 @@ class PlayerDV3(nn.Module):
             obs (Dict[str, Tensor]): the current observations.
             greedy (bool): whether or not to sample the actions.
                 Default to False.
-
+            mask (Optional[Dict[str, Tensor]]): action mask
         Returns:
             The actions the agent has to perform.
         """
@@ -744,11 +738,11 @@ class WorldModel(nn.Module):
     Wrapper class for the World model.
 
     Args:
-        encoder (_FabricModule): the encoder.
+        encoder (Module): the encoder.
         rssm (RSSM): the rssm.
-        observation_model (_FabricModule): the observation model.
-        reward_model (_FabricModule): the reward model.
-        continue_model (_FabricModule, optional): the continue model.
+        observation_model (Module): the observation model.
+        reward_model (Module): the reward model.
+        continue_model (Module, optional): the continue model.
     """
 
     def __init__(
@@ -811,8 +805,8 @@ class DreamerV3WorldModel(nn.Module):
         Returns:
             The world model (WorldModel): composed by the encoder, rssm, observation and
             reward models and the continue model.
-            The actor (_FabricModule).
-            The critic (_FabricModule).
+            The actor (nn.Module).
+            The critic (nn.Module).
             The target critic (nn.Module).
         """
 
@@ -825,7 +819,6 @@ class DreamerV3WorldModel(nn.Module):
         recurrent_state_size = world_model_config.recurrent_model.recurrent_state_size
         stochastic_size = world_model_config.stochastic_size * world_model_config.discrete_size
         latent_state_size = stochastic_size + recurrent_state_size
-        # TODO obs_space Dict[str, space] -> space
         # Define models
         cnn_stages = int(np.log2(config.env.screen_size) - np.log2(4))  # 4
         cnn_encoder = (
@@ -839,8 +832,6 @@ class DreamerV3WorldModel(nn.Module):
                 stages=cnn_stages,
             )
             if config.pixel else None
-            # if config.cnn_keys.encoder is not None and len(config.cnn_keys.encoder) > 0
-            # else None
         )
         mlp_encoder = (
             MLPEncoder(
@@ -852,8 +843,6 @@ class DreamerV3WorldModel(nn.Module):
                 layer_norm_kw=world_model_config.encoder.mlp_layer_norm.kw,
             )
             if not config.pixel else None
-            # if config.mlp_keys.encoder is not None and len(config.mlp_keys.encoder) > 0
-            # else None
         )
         encoder = MultiEncoder(cnn_encoder, mlp_encoder).to(config.device)
 
@@ -899,10 +888,6 @@ class DreamerV3WorldModel(nn.Module):
             ],
         )
 
-        # if config.world_model.:
-        #     rssm_cls = DecoupledRSSM
-        # else:
-        #     rssm_cls = RSSM
         rssm_cls = RSSM
         rssm = rssm_cls(
             recurrent_model=recurrent_model.apply(init_weights),
@@ -910,7 +895,7 @@ class DreamerV3WorldModel(nn.Module):
             transition_model=transition_model.apply(init_weights),
             distribution_config=config.distribution,
             discrete=world_model_config.discrete_size,
-            unimix=config.unimix,  # transition_model & representation_model unimix 0.01 norm_dist
+            unimix=config.unimix,
             learnable_initial_recurrent_state=config.world_model.learnable_initial_recurrent_state,
         ).to(config.device)
 
@@ -927,8 +912,6 @@ class DreamerV3WorldModel(nn.Module):
                 stages=cnn_stages,
             )
             if config.pixel else None
-            # if config.cnn_keys.decoder is not None and len(config.cnn_keys.decoder) > 0
-            # else None
         )
         mlp_decoder = (
             MLPDecoder(
@@ -941,8 +924,6 @@ class DreamerV3WorldModel(nn.Module):
                 layer_norm_kw=world_model_config.observation_model.mlp_layer_norm.kw,
             )
             if not config.pixel else None
-            # if config.mlp_keys.decoder is not None and len(config.mlp_keys.decoder) > 0
-            # else None
         )
         observation_model = MultiDecoder(cnn_decoder, mlp_decoder).to(config.device)
 
@@ -1029,7 +1010,6 @@ class DreamerV3WorldModel(nn.Module):
             if cnn_decoder is not None:
                 cnn_decoder.model[-1].model[-1].apply(uniform_init_weights(1.0))
 
-        # Create the player agent
         player = PlayerDV3(  # encoder, rssm, actor
             copy.deepcopy(world_model.encoder),
             copy.deepcopy(world_model.rssm),
@@ -1041,11 +1021,7 @@ class DreamerV3WorldModel(nn.Module):
             config.device,
             discrete_size=config.world_model.discrete_size,
         )
-
-        # Setup target critic with a SingleDeviceStrategy
         target_critic = copy.deepcopy(critic)
-
-        """绑定 world model, player 两者权重, player 只用于与真实环境交互, world model 会在 training 阶段学习"""
         # Tie weights between the agent and the player
         for agent_p, p in zip(world_model.encoder.parameters(), player.encoder.parameters()):
             p.data = agent_p.data

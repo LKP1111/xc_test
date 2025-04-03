@@ -30,6 +30,9 @@ class DreamerV3Agent(OffPolicyAgent):
                  config: Namespace,
                  envs: Union[DummyVecEnv, SubprocVecEnv]):
         super(DreamerV3Agent, self).__init__(config, envs)
+        # special judge for atari env
+        self.atari = True if self.config.env_name == "Atari" else False
+
         # continuous or not
         self.is_continuous = isinstance(self.envs.action_space, gym.spaces.Box)
         self.is_multidiscrete = isinstance(self.envs.action_space, gym.spaces.MultiDiscrete)
@@ -37,7 +40,11 @@ class DreamerV3Agent(OffPolicyAgent):
 
         # obs_shape & act_shape
         self.obs_shape = self.observation_space.shape
-        """hwc 2 chw; agent 和 memory 用 hwc, sample 以及 action 前转成 chw 並 normalize"""
+        """
+        hwc 2 chw: 
+        agent & memory both uses 'hwc'
+        obs needed to be transformed to 'chw' and be normalized before sample & taking an action
+        """
         if self.config.pixel:
             self.obs_shape = (self.obs_shape[2], ) + self.obs_shape[:2]
         self.act_shape = self.action_space.n if not self.is_continuous else self.action_space.shape
@@ -93,8 +100,6 @@ class DreamerV3Agent(OffPolicyAgent):
         return representation
 
     def _build_memory(self, auxiliary_info_shape=None) -> SequentialReplayBuffer:
-        self.atari = True if self.config.env_name == "Atari" else False  # TODO atari
-        # Buffer = DummyOffPolicyBuffer_Atari if self.atari else DummyOffPolicyBuffer
         Buffer = SequentialReplayBuffer
         input_buffer = dict(observation_space=self.observation_space,
                             action_space=self.action_space,
@@ -119,7 +124,7 @@ class DreamerV3Agent(OffPolicyAgent):
             player (Optional[PlayerDV3]): The player whose action is taken, default is train_player.
 
         Returns:
-            actions: The actions to be executed.
+            actions: The real_actions to be executed.
         """
         if self.config.pixel:
             obs = obs.transpose(0, 3, 1, 2) / 255.0 - 0.5
@@ -146,49 +151,42 @@ class DreamerV3Agent(OffPolicyAgent):
         if self.config.pixel:
             samples['obs'] = samples['obs'].transpose(0, 1, 2, 5, 3, 4) / 255.0 - 0.5
         # n_epoch(n_gradient step) scattered to each environment
-        # st = np.random.choice(np.arange(self.envs.num_envs), 1).item()  # 去掉这个, 感觉训练顺序没必要
+        # st = np.random.choice(np.arange(self.envs.num_envs), 1).item()  # not necessary
         st = 0
         for _ in range(n_epochs):  # assert n_epochs == parallels
             cur_samples = {k: v[(st + _) % self.envs.num_envs] for k, v in samples.items()}
             train_info = self.learner.update(**cur_samples)
         return train_info
 
-    def _squeeze_and_store(self, x: List[np.ndarray]):
-        # deal with xuance memory store, deepcopy: do not change dim of the variables
-        self.memory.store(*(lambda t: [np.squeeze(_) for _ in t])(x))
-
-    def train(self, train_steps):  # each train uses old envs
+    def train(self, train_steps):  # each train still uses old rssm_states until episode end
         return_info = {}
         obs, rews, terms, truncs, is_first = self.train_states
 
         for _ in tqdm(range(train_steps)):
             step_info = {}
-            self.obs_rms.update(obs)  # ?
-            obs = self._process_observation(obs)  # obs_norm
+            self.obs_rms.update(obs)
+            obs = self._process_observation(obs)
             if self.current_step < self.start_training:  # ramdom_sample before training
                 acts = np.array([self.envs.action_space.sample() for _ in range(self.envs.num_envs)])
             else:
                 acts = self.action(obs)
-            if self.atari:  # 在 xc_atari 中, 用 truncs 推理和训练
+            if self.atari:  # use truncs to train in xc_atari
                 terms = deepcopy(truncs)
-            """(o1, a1, r1, term1, trunc1, is_first1), act: not one-hot"""
+            """(o1, a1, r1, term1, trunc1, is_first1), acts: real_acts"""
             self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
-            # self._squeeze_and_store([])
             next_obs, rews, terms, truncs, infos = self.envs.step(acts)
             """
             set to zeros after the first step
             (o2, a1, r2, term2, trunc2, is_first2)
             """
             is_first = np.zeros_like(terms)
-            # prev_obs_for_atari_term = obs
             obs = next_obs
             self.returns = self.gamma * self.returns + rews
-            atari_term_idxes = []
             done_idxes = []
             for i in range(self.n_envs):
                 if terms[i] or truncs[i]:
                     if self.atari and (~truncs[i]):  # do not term until trunc
-                        atari_term_idxes.append(i)
+                        pass
                     else:
                         # carry the reset procedure to the outside
                         done_idxes.append(i)
@@ -205,28 +203,15 @@ class DreamerV3Agent(OffPolicyAgent):
                         self.log_infos(step_info, self.current_step)
                         return_info.update(step_info)
             self.current_step += self.n_envs
-            # self._update_explore_factor()
-            # one more frame for atari_term
-            # if len(atari_term_idxes) > 0:
-            #     acts[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-            #     self.memory.store(prev_obs_for_atari_term, acts, self._process_reward(rews), terms, truncs, is_first)
-            #     """reset DreamerV3 Player's states"""
-            #     rews[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-            #     terms[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-            #     truncs[atari_term_idxes] = np.zeros((len(atari_term_idxes),))
-            #     is_first[atari_term_idxes] = np.ones_like(terms[atari_term_idxes])
-            #     self.train_player.init_states(atari_term_idxes)
-            # TODO when an env is done, one more frame need to be stored, which may cause problem to other envs
             if len(done_idxes) > 0:
                 """
                 store the last data and reset all
                 (o_t, a_t = 0 for dones, r_t, term_t, trunc_t, is_first_t)
                 """
                 acts[done_idxes] = np.zeros((len(done_idxes), ))
-                if self.atari:  # 在 xc_atari 中, 用 truncs 推理和训练
+                if self.atari:  # use truncs to train in xc_atari
                     terms = deepcopy(truncs)
                 self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
-                # self._squeeze_and_store([obs, acts, self._process_reward(rews), terms, truncs, is_first])
 
                 """reset DreamerV3 Player's states"""
                 obs[done_idxes] = np.stack([infos[idx]["reset_obs"] for idx in done_idxes])  # reset obs
@@ -277,34 +262,29 @@ class DreamerV3Agent(OffPolicyAgent):
                     videos[idx].append(img)
 
             obs = deepcopy(next_obs)
-            atari_term_idxes = []
             done_idxes = []
             for i in range(num_envs):
                 if terms[i] or truncs[i]:
                     if self.atari and (~truncs[i]):
-                        atari_term_idxes.append(i)
+                        pass
                     else:
-                        done_idxes.append(i)  # bug fixed, add done_idxes.append
+                        done_idxes.append(i)
                         obs[i] = infos[i]["reset_obs"]
                         if is_done[i] != 1:
                             is_done[i] = 1
                             scores.append(infos[i]["episode_score"])
-                        # current_episode += 1  # TODO (每结束一个环境就+1, 若一个环境结束多次呢??就会占用的多个分数)
-
                         if best_score < infos[i]["episode_score"]:
                             best_score = infos[i]["episode_score"]
                             episode_videos = videos[i].copy()
                         if self.config.test_mode:
                             print("Episode: %d, Score: %.2f" % (current_episode, infos[i]["episode_score"]))
-            # if len(atari_term_idxes) > 0:
-            #     test_player.init_states(reset_envs=atari_term_idxes, num_envs=num_envs)
-            if len(done_idxes) > 0:  # bug fixed, add len(done_idxes)
+            if len(done_idxes) > 0:
                 test_player.init_states(reset_envs=done_idxes, num_envs=num_envs)
 
         if self.config.render_mode == "rgb_array" and self.render:
             # time, height, width, channel -> time, channel, height, width
             videos_info = {"Videos_Test": np.array([episode_videos], dtype=np.uint8).transpose((0, 1, 4, 2, 3))}
-            self.log_videos(info=videos_info, fps=self.fps, x_index=self.current_step)  # TODO 这里 fps 设置了没效果
+            self.log_videos(info=videos_info, fps=self.fps, x_index=self.current_step)  # fps cannot work
 
         if self.config.test_mode:
             print("Best Score: %.2f" % best_score)

@@ -6,7 +6,7 @@ render: False
 render_mode: 'rgb_array' # Choices: 'human', 'rgb_array'.
 fps: 50
 test_mode: False
-device: "cpu"
+device: "cuda:0"
 distributed_training: False  # Whether to use multi-GPU for distributed training.
 master_port: '12355'  # The master port for current experiment when use distributed training.
 
@@ -20,124 +20,26 @@ learner: "DreamerV3Learner"
 policy: "DreamerV3Policy"
 runner: "DRL"
 
-# TODO world_model & actor_critic start
+# world_model & actor_critic start
 distribution:
   validate_args: false
   type: auto
 pixel: False
 env:
   screen_size: 64
-#actor_hidden_size: [512, 512]
-#critic_hidden_size: [512, 512]
 activation: 'silu'
-world_model:
-  #    optimizer:
-  #      _target_: torch.optim.Adam
-  #      lr: 0.0001
-  #      eps: 1.0e-08
-  #      weight_decay: 0
-  #      betas:
-  #      - 0.9
-  #      - 0.999
-  discrete_size: 32
-  stochastic_size: 32
-  kl_dynamic: 0.5
-  kl_representation: 0.1
-  kl_free_nats: 1.0
-  kl_regularizer: 1.0
-  continue_scale_factor: 1.0
-  clip_gradients: 1000.0  # TODO
-  decoupled_rssm: false
-  learnable_initial_recurrent_state: true
-  encoder:
-    cnn_channels_multiplier: 32
-    cnn_act: torch.nn.SiLU
-    dense_act: torch.nn.SiLU
-    mlp_layers: 2
-    cnn_layer_norm:
-      cls: sheeprl.models.models.LayerNormChannelLast
-      kw:
-        eps: 0.001
-    mlp_layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-    dense_units: 512
-  recurrent_model:
-    recurrent_state_size: 512
-    layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-    dense_units: 512
-  transition_model:
-    hidden_size: 512
-    dense_act: torch.nn.SiLU
-    layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-  representation_model:
-    hidden_size: 512
-    dense_act: torch.nn.SiLU
-    layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-  observation_model:
-    cnn_channels_multiplier: 32
-    cnn_act: torch.nn.SiLU
-    dense_act: torch.nn.SiLU
-    mlp_layers: 2
-    cnn_layer_norm:
-      cls: sheeprl.models.models.LayerNormChannelLast
-      kw:
-        eps: 0.001
-    mlp_layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-    dense_units: 512
-  reward_model:
-    dense_act: torch.nn.SiLU
-    mlp_layers: 2
-    layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-    dense_units: 512
-    bins: 255
-  discount_model:
-    learnable: true
-    dense_act: torch.nn.SiLU
-    mlp_layers: 2
-    layer_norm:
-      cls: sheeprl.models.models.LayerNorm
-      kw:
-        eps: 0.001
-    dense_units: 512
+
 actor:
-  #  optimizer:
-  #    _target_: torch.optim.Adam
-  #    lr: 8.0e-05
-  #    eps: 1.0e-05
-  #    weight_decay: 0
-  #    betas:
-  #    - 0.9
-  #    - 0.999
-  cls: sheeprl.algos.dreamer_v3.agent.Actor
   ent_coef: 0.0003
   min_std: 0.1
   max_std: 1.0
   init_std: 2.0
-  dense_act: torch.nn.SiLU
   mlp_layers: 2
   layer_norm:
-    cls: sheeprl.models.models.LayerNorm
     kw:
       eps: 0.001
   dense_units: 512
-  clip_gradients: 100.0  # TODO
+  clip_gradients: 100.0
   unimix: 0.01
   action_clip: 1.0
   moments:
@@ -147,76 +49,108 @@ actor:
       low: 0.05
       high: 0.95
 critic:
-#  optimizer:
-#    _target_: torch.optim.Adam
-#    lr: 8.0e-05
-#    eps: 1.0e-05
-#    weight_decay: 0
-#    betas:
-#      - 0.9
-#      - 0.999
-  dense_act: torch.nn.SiLU
   mlp_layers: 2
   layer_norm:
-    cls: sheeprl.models.models.LayerNorm
     kw:
       eps: 0.001
   dense_units: 512
   soft_update_freq: 1
   tau: 0.02
   bins: 255
-  clip_gradients: 100.0  # TODO
-#  clip_gradients: 100.0
-
-
-# xc_style start
-learning_rate_model: 0.0001  # 1e-4
-learning_rate_actor: 0.00008  # 8e-5
-learning_rate_critic: 0.00008  # 8e-5
-# xc_style end
+  clip_gradients: 100.0
+world_model:
+  discrete_size: 32
+  stochastic_size: 32
+  kl_dynamic: 0.5
+  kl_representation: 0.1
+  kl_free_nats: 1.0
+  kl_regularizer: 1.0
+  continue_scale_factor: 1.0
+  clip_gradients: 1000.0
+  learnable_initial_recurrent_state: true
+  encoder:
+    cnn_channels_multiplier: 32
+    mlp_layers: 2
+    cnn_layer_norm:
+      kw:
+        eps: 0.001
+    mlp_layer_norm:
+      kw:
+        eps: 0.001
+    dense_units: 512
+  recurrent_model:
+    recurrent_state_size: 512
+    layer_norm:
+      kw:
+        eps: 0.001
+    dense_units: 512
+  transition_model:
+    hidden_size: 512
+    layer_norm:
+      kw:
+        eps: 0.001
+  representation_model:
+    hidden_size: 512
+    layer_norm:
+      kw:
+        eps: 0.001
+  observation_model:
+    cnn_channels_multiplier: 32
+    mlp_layers: 2
+    cnn_layer_norm:
+      kw:
+        eps: 0.001
+    mlp_layer_norm:
+      kw:
+        eps: 0.001
+    dense_units: 512
+  reward_model:
+    mlp_layers: 2
+    layer_norm:
+      kw:
+        eps: 0.001
+    dense_units: 512
+    bins: 255
+  discount_model:
+    learnable: true
+    mlp_layers: 2
+    layer_norm:
+      kw:
+        eps: 0.001
+    dense_units: 512
 
 gamma: 0.996996996996997
 lmbda: 0.95
 horizon: 15
 
-
-# learning_starts: 1024  # outside
-per_rank_pretrain_steps: 0  # ??
-#per_rank_sequence_length: 64  # seq_len
 unimix: 0.01
 hafner_initialization: True
-#player:
-#  discrete_size: 32
-# TODO world_model & actor_critic end
+# world_model & actor_critic end
 
 seed: 1
-parallels: 4
-buffer_size: 1000000
+parallels: 1
+buffer_size: 1000000  # 1e6
 batch_size: 16
 seq_len: 64
-#learning_rate: 0.001
+learning_rate_model: 0.0001  # 1e-4
+learning_rate_actor: 0.00008  # 8e-5
+learning_rate_critic: 0.00008  # 8e-5
 
-
-#start_greedy: 0.5
-#end_greedy: 0.01
-#decay_step_greedy: 200000
-#sync_frequency: 50
-#training_frequency: 1
 replay_ratio: 1  # gradient_step / replay_step
-running_steps: 200000
+running_steps: 10000  # 10k
 start_training: 1024
 
-use_grad_clip: True  # gradient normalization
+use_grad_clip: False  # gradient normalization
+clip_type: 1
 grad_clip_norm: 100.0
-
 use_actions_mask: False
 use_obsnorm: False
 use_rewnorm: False
 obsnorm_range: 5
 rewnorm_range: 5
 
-test_steps: 10000  # ??
-eval_interval: 20000
+test_steps: 10000
+eval_interval: 200
 test_episode: 3
-log_dir: "./logs/CartPole/"
-model_dir: "./models/CartPole/"
+log_dir: "./logs/Pendulum-v1/"
+model_dir: "./models/Pendulum-v1/"

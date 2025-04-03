@@ -9,16 +9,23 @@ from common import DreamerV3Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for CartPole.")
     parser.add_argument("--env-id", type=str, default="CartPole-v1")
-    parser.add_argument("--running-steps", type=int, default=100_000)
-    parser.add_argument("--eval-interval", type=int, default=1_000)
-    parser.add_argument('--parallels', type=int, default=4)
-    # parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--log-dir", type=str, default="./logs/CartPole-v1/")
+    parser.add_argument("--model-dir", type=str, default="./models/CartPole-v1/")
     parser.add_argument("--device", type=str, default="cuda:0")
+
+    """env = 1, 50m_sheeprl.yaml"""
+    # 10k
+    parser.add_argument("--running-steps", type=int, default=10_000)  # 10k
+    parser.add_argument("--eval-interval", type=int, default=200)  # 50 logs
     parser.add_argument("--replay-ratio", type=int, default=1)
 
+    # parallels & benchmark
+    parser.add_argument('--parallels', type=int, default=1)
     parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--benchmark", type=int, default=1)
 
+    # render test
+    # parser.add_argument("--env_seed", type=int, default=2)
     # parser.add_argument("--render", type=bool, default=True)
     # parser.add_argument("--render_mode", type=str, default='human')
     # parser.add_argument("--parallels", type=int, default=1)
@@ -68,7 +75,10 @@ if __name__ == '__main__':
             Agent.train(eval_interval)
             test_scores = Agent.test(env_fn, test_episode)
 
-            if np.mean(test_scores) > best_scores_info["mean"]:
+            can_save = np.mean(test_scores) > best_scores_info["mean"]
+            can_save |= (abs(np.mean(test_scores) - best_scores_info["mean"]) < 1e-6
+                         and np.std(test_scores) < best_scores_info["std"])
+            if can_save:
                 best_scores_info = {"mean": np.mean(test_scores),
                                     "std": np.std(test_scores),
                                     "step": Agent.current_step}
@@ -82,7 +92,8 @@ if __name__ == '__main__':
                 configs.parallels = configs.test_episode
                 return make_envs(configs)
 
-
+            model = None
+            # model = 'seed_1_2025_0324_100206'
             Agent.load_model(path=Agent.model_dir_load)
             scores = Agent.test(env_fn, configs.test_episode)
             print(f"Mean Score: {np.mean(scores)}, Std: {np.std(scores)}")

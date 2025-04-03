@@ -1,9 +1,6 @@
 import argparse
-import sys
-
 import numpy as np
 from copy import deepcopy
-
 from xuance.torch.utils.operations import set_seed
 from xuance.common import get_configs, recursive_dict_update
 from xuance.environment import make_envs
@@ -12,35 +9,33 @@ from common import DreamerV3Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Pendulum.")
     parser.add_argument("--env-id", type=str, default="Pendulum-v1")
-    parser.add_argument("--log-dir", type=str, default="./dataset/50m_sheeprl/logs/Pendulum-v1/")
-    parser.add_argument("--model-dir", type=str, default="./dataset/50m_sheeprl/models/Pendulum-v1/")
+    parser.add_argument("--log-dir", type=str, default="./logs/Pendulum-v1/")
+    parser.add_argument("--model-dir", type=str, default="./models/Pendulum-v1/")
     parser.add_argument("--device", type=str, default="cuda:0")
-    # parser.add_argument("--render", type=bool, default=True)  # test_video_log
 
     """env = 1, 50m_sheeprl.yaml"""
     # 10k
     parser.add_argument("--running-steps", type=int, default=10_000)  # 10k
-    parser.add_argument("--eval-interval", type=int, default=200)  # 50 条数据应该差不多
+    parser.add_argument("--eval-interval", type=int, default=200)  # 50 logs
     parser.add_argument("--replay-ratio", type=int, default=1)
 
     # parallels & benchmark
-    # parser.add_argument('--parallels', type=int, default=1)
-    # parser.add_argument("--test", type=int, default=0)
-    # parser.add_argument("--benchmark", type=int, default=1)
+    parser.add_argument('--parallels', type=int, default=1)
+    parser.add_argument("--test", type=int, default=0)
+    parser.add_argument("--benchmark", type=int, default=1)
 
     # render test
-    parser.add_argument("--env_seed", type=int, default=2)
-    parser.add_argument("--render", type=bool, default=True)
-    parser.add_argument("--render_mode", type=str, default='human')
-    parser.add_argument("--parallels", type=int, default=1)
-    parser.add_argument("--test-episode", type=int, default=1)
-    parser.add_argument("--test", type=int, default=1)
-    parser.add_argument("--benchmark", type=int, default=0)
+    # parser.add_argument("--env_seed", type=int, default=2)
+    # parser.add_argument("--render", type=bool, default=True)
+    # parser.add_argument("--render_mode", type=str, default='human')
+    # parser.add_argument("--parallels", type=int, default=1)
+    # parser.add_argument("--test-episode", type=int, default=1)
+    # parser.add_argument("--test", type=int, default=1)
+    # parser.add_argument("--benchmark", type=int, default=0)
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    # print(sys.path)  # python path
     parser = parse_args()
     configs_dict = get_configs(file_dir="config/Pendulum-v1.yaml")
     configs_dict = recursive_dict_update(configs_dict, parser.__dict__)

@@ -1,9 +1,6 @@
 import argparse
-import sys
-
 import numpy as np
 from copy import deepcopy
-
 from xuance.torch.utils.operations import set_seed
 from xuance.common import get_configs, recursive_dict_update
 from xuance.environment import make_envs
@@ -12,40 +9,39 @@ from common import DreamerV3Agent
 def parse_args():
     parser = argparse.ArgumentParser("Example of XuanCe: DreamerV3 for Atari.")
     parser.add_argument("--env-id", type=str, default="ALE/Pong-v5")
-    parser.add_argument("--log-dir", type=str, default="./dataset/50m_sheeprl/logs/Pong-v5/")
-    parser.add_argument("--model-dir", type=str, default="./dataset/50m_sheeprl/models/Pong-v5/")
+    parser.add_argument("--log-dir", type=str, default="./logs/Pong-v5/")
+    parser.add_argument("--model-dir", type=str, default="./models/Pong-v5/")
     parser.add_argument("--device", type=str, default="cuda:0")
-    # parser.add_argument("--render", type=bool, default=True)  # test_video_log
 
     """env = 1, action_repeat = 4, 50m.yaml"""
-    # atari5M, ratio=0.03125, gradient_step=156.25k, ??
+    # atari5M, ratio=0.03125, gradient_step=156.25k
     # parser.add_argument("--running-steps", type=int, default=5_000_000)  # 5M
     # parser.add_argument("--eval-interval", type=int, default=100_000)
     # parser.add_argument("--replay-ratio", type=int, default=0.03125)
 
-    # atari1M, ratio=1/8=0.125, gradient_step=125k, ??
+    # atari1M, ratio=1/8=0.125, gradient_step=125k
     # parser.add_argument("--running-steps", type=int, default=1_000_000)  # 1M
     # parser.add_argument("--eval-interval", type=int, default=20_000)
     # parser.add_argument("--replay-ratio", type=int, default=0.125)
 
-    # atari100k, ratio=1, gradient_step=100k, sheeprl 5.5h; official ratio = 0.25 2.5h
-    # parser.add_argument("--running-steps", type=int, default=100_000)  # 100k
-    # parser.add_argument("--eval-interval", type=int, default=2_000)  # 50 条数据应该差不多
-    # parser.add_argument("--replay-ratio", type=int, default=1)
+    # atari100k, ratio=1, gradient_step=100k
+    parser.add_argument("--running-steps", type=int, default=100_000)  # 100k
+    parser.add_argument("--eval-interval", type=int, default=2_000)  # 50 logs
+    parser.add_argument("--replay-ratio", type=int, default=1)
 
     # parallels & benchmark
-    # parser.add_argument('--parallels', type=int, default=1)
-    # parser.add_argument("--test", type=int, default=0)
-    # parser.add_argument("--benchmark", type=int, default=1)
+    parser.add_argument('--parallels', type=int, default=1)
+    parser.add_argument("--test", type=int, default=0)
+    parser.add_argument("--benchmark", type=int, default=1)
 
     # render test
-    parser.add_argument("--env_seed", type=int, default=1)
-    parser.add_argument("--render", type=bool, default=True)
-    parser.add_argument("--render_mode", type=str, default='human')
-    parser.add_argument("--parallels", type=int, default=1)
-    parser.add_argument("--test-episode", type=int, default=1)
-    parser.add_argument("--test", type=int, default=1)
-    parser.add_argument("--benchmark", type=int, default=0)
+    # parser.add_argument("--env_seed", type=int, default=1)
+    # parser.add_argument("--render", type=bool, default=True)
+    # parser.add_argument("--render_mode", type=str, default='human')
+    # parser.add_argument("--parallels", type=int, default=1)
+    # parser.add_argument("--test-episode", type=int, default=1)
+    # parser.add_argument("--test", type=int, default=1)
+    # parser.add_argument("--benchmark", type=int, default=0)
     return parser.parse_args()
 
 

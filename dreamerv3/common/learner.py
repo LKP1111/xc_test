@@ -37,16 +37,6 @@ class DreamerV3Learner(Learner):
             'actor': torch.optim.Adam(self.policy.actor.parameters(), self.config.learning_rate_actor),
             'critic': torch.optim.Adam(self.policy.critic.parameters(), self.config.learning_rate_critic)
         }
-        # self.scheduler = {
-        #     'actor': torch.optim.lr_scheduler.LinearLR(self.optimizer['actor'],
-        #                                                start_factor=1.0,
-        #                                                end_factor=self.end_factor_lr_decay,
-        #                                                total_iters=self.config.running_steps),
-        #     'critic': torch.optim.lr_scheduler.LinearLR(self.optimizer['critic'],
-        #                                                 start_factor=1.0,
-        #                                                 end_factor=self.end_factor_lr_decay,
-        #                                                 total_iters=self.config.running_steps)
-        # }
 
         self.gradient_step = 0
 
@@ -60,14 +50,13 @@ class DreamerV3Learner(Learner):
             # acts to one_hot [seq, batch, action_size]
             acts = nn.functional.one_hot(acts.long(), num_classes=self.action_shape).float()
         rews = torch.as_tensor(samples['rews'], device=self.device)
-        terms = torch.as_tensor(samples['terms'], device=self.device)  # no use
-        truncs = torch.as_tensor(samples['truncs'], device=self.device)
+        terms = torch.as_tensor(samples['terms'], device=self.device)
+        truncs = torch.as_tensor(samples['truncs'], device=self.device)  # no use
         is_first = torch.as_tensor(samples['is_first'], device=self.device)
         """
         seq_shift
         (o1, a1 -> a0, r1, terms1, truncs1, is_first1)
         """
-        # is_first[0] = torch.ones_like(is_first[0])  # TODO check data["is_first"][0, :] = torch.ones_like(data["is_first"][0, :])
         is_first[0, :] = torch.ones_like(is_first[0, :])
         acts = torch.cat((torch.zeros_like(acts[:1]), acts[:-1]), 0)  # bug fixed ones_like -> zeros_like
         cont = 1 - terms
@@ -76,7 +65,7 @@ class DreamerV3Learner(Learner):
             self.policy.model_forward(obs, acts, is_first)
 
         """model"""
-        observation_loss = -po.log_prob(obs)  # bug fixed po.log_prob(obs) -> -po.log_prob(obs)  3-16-20:39
+        observation_loss = -po.log_prob(obs)
         reward_loss = -pr.log_prob(rews)
         # KL balancing
         dyn_loss = kl = kl_divergence(  # prior -> post
@@ -96,55 +85,39 @@ class DreamerV3Learner(Learner):
         else:
             continue_loss = torch.zeros_like(reward_loss)
         model_loss = (self.kl_regularizer * kl_loss + observation_loss + reward_loss + continue_loss).mean()
-        # TODO gradient clip
-        # world_model_grads = None
-        # if cfg.algo.world_model.clip_gradients is not None and cfg.algo.world_model.clip_gradients > 0:
-        #     world_model_grads = fabric.clip_gradients(
-        #         module=world_model,
-        #         optimizer=world_optimizer,
-        #         max_norm=cfg.algo.world_model.clip_gradients,
-        #         error_if_nonfinite=False,
-        #     )
-        # world_optimizer.step()
+
         self.optimizer['model'].zero_grad()
         model_loss.backward()
+        if self.config.world_model.clip_gradients is not None:
+            torch.nn.utils.clip_grad_norm_(self.policy.world_model.parameters(), self.config.world_model.clip_gradients)
         self.optimizer['model'].step()
 
         """actor"""
-        out = self.policy.actor_critic_forward(posteriors, recurrent_states, terms)  # TODO out of graphic memory ??
+        out = self.policy.actor_critic_forward(posteriors, recurrent_states, terms)
         objective, discount, entropy = out['for_actor']
         qv, predicted_target_values, lambda_values = out['for_critic']
         actor_loss = -torch.mean(discount[:-1].detach() * (objective + entropy.unsqueeze(dim=-1)[:-1]))
 
         self.optimizer['actor'].zero_grad()
         actor_loss.backward()
-        self.optimizer['actor'].step()  # TODO gradient clip
-        # fabric.backward(policy_loss)
-        # actor_grads = None
-        # if cfg.algo.actor.clip_gradients is not None and cfg.algo.actor.clip_gradients > 0:
-        #     actor_grads = fabric.clip_gradients(
-        #         module=actor, optimizer=actor_optimizer, max_norm=cfg.algo.actor.clip_gradients,
-        #         error_if_nonfinite=False
-        #     )
-        # actor_optimizer.step()
+        if self.config.actor.clip_gradients is not None:
+            torch.nn.utils.clip_grad_norm_(self.policy.actor.parameters(), self.config.actor.clip_gradients)
+        self.optimizer['actor'].step()
+
         """critic"""
         critic_loss = -qv.log_prob(lambda_values.detach())
         critic_loss = critic_loss - qv.log_prob(predicted_target_values.detach())
         critic_loss = torch.mean(critic_loss * discount[:-1].squeeze(-1))
         self.optimizer['critic'].zero_grad()
         critic_loss.backward()
+        if self.config.critic.clip_gradients is not None:
+            torch.nn.utils.clip_grad_norm_(self.policy.critic.parameters(), self.config.critic.clip_gradients)
         self.optimizer['critic'].step()
 
         self.gradient_step += 1
         if self.gradient_step % 100 == 0:
             print(f'gradient_step: {self.gradient_step}')
 
-        # def memory_stats():
-        #     print(torch.cuda.memory_allocated() / 1024 ** 2)
-        #     print(torch.cuda.memory_reserved() / 1024 ** 2)
-        # print(torch.cuda.memory_summary())
-
-        # TODO metrics
         info = {
             "model_loss/model_loss": model_loss.item(),
             "model_loss/obs_loss": observation_loss.mean().item(),
@@ -159,8 +132,6 @@ class DreamerV3Learner(Learner):
             "critic_loss/critic_loss": critic_loss.item(),
             "critic_loss/lambda_values": lambda_values.mean().item(),
 
-            # "lr/model_lr": model_lr,
-            # "lr/actor_lr": actor_lr,
-            # "lr/critic_lr": critic_lr,
+            "step/gradient_step": self.gradient_step
         }
         return info

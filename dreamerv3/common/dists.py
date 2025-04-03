@@ -2,11 +2,11 @@ import torch
 from torch import Tensor
 import torch.nn.functional as F
 from typing import Callable
-from torch.distributions import Bernoulli, Categorical, Distribution, constraints
+from torch.distributions import Bernoulli
 
 from . import symlog, symexp
 
-class SymlogDistribution:  # (这个就是固定值的分布, 只是出来的时候加了 symexp 解码而已)
+class SymlogDistribution:
     def __init__(
         self,
         mode: Tensor,
@@ -88,32 +88,31 @@ class TwoHotEncodingDistribution:
         transfwd: Callable[[Tensor], Tensor] = symlog,
         transbwd: Callable[[Tensor], Tensor] = symexp,
     ):
-        self.logits = logits  # 预测的是 symlog 后的值, 此时将该值存储为 [-20, 20] 区间上的 two-hot encode
+        self.logits = logits
         self.probs = F.softmax(logits, dim=-1)
         self.dims = tuple([-x for x in range(1, dims + 1)])  # logits.shape[-1] = 255 (len(self.bins))
         self.bins = torch.linspace(low, high, logits.shape[-1], device=logits.device)
-        self.low = low  # -20
-        self.high = high  # 20
-        self.transfwd = transfwd  # symlog
-        self.transbwd = transbwd  # symexp
+        self.low = low
+        self.high = high
+        self.transfwd = transfwd
+        self.transbwd = transbwd
         self._batch_shape = logits.shape[: len(logits.shape) - dims]
         self._event_shape = logits.shape[len(logits.shape) - dims : -1] + (1,)
 
     @property
-    def mean(self) -> Tensor:  # 取出来的时候用 symexp 解码
+    def mean(self) -> Tensor:
         return self.transbwd((self.probs * self.bins).sum(dim=self.dims, keepdim=True))
 
     @property
     def mode(self) -> Tensor:
         return self.transbwd((self.probs * self.bins).sum(dim=self.dims, keepdim=True))
 
-    def log_prob(self, x: Tensor) -> Tensor:  # x 在该分布中的 log_likelihood (对数似然)
-        x = self.transfwd(x)  # 真实值带入时先 symlog 编码
-        # below in [-1, len(self.bins) - 1], 小于等于 x 的 bin 数目, 若有 2 个, 则 below 为下标 2 - 1 = 1
+    def log_prob(self, x: Tensor) -> Tensor:
+        x = self.transfwd(x)
+        # below in [-1, len(self.bins) - 1]
         below = (self.bins <= x).type(torch.int32).sum(dim=-1, keepdim=True) - 1
         # above in [0, len(self.bins)]
         above = below + 1  # shape: [1, ]
-        """above 与 len(self.bins) - 1 取 min, below 与 0 取 max"""
         # above in [0, len(self.bins) - 1]
         above = torch.minimum(above, torch.full_like(above, len(self.bins) - 1))
         # below in [0, len(self.bins) - 1]
