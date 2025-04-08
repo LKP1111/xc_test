@@ -20,6 +20,7 @@ from . import dotdict
 
 import numpy as np
 from tqdm import tqdm
+import gym as gym_old  # for robodesk
 import gymnasium as gym
 from argparse import Namespace
 from xuance.common import space2shape, Optional
@@ -34,7 +35,8 @@ class DreamerV3Agent(OffPolicyAgent):
         self.atari = True if self.config.env_name == "Atari" else False
 
         # continuous or not
-        self.is_continuous = isinstance(self.envs.action_space, gym.spaces.Box)
+        self.is_continuous = (isinstance(self.envs.action_space, gym.spaces.Box) or
+                              isinstance(self.envs.action_space, gym_old.spaces.Box))
         self.is_multidiscrete = isinstance(self.envs.action_space, gym.spaces.MultiDiscrete)
         self.config.is_continuous = self.is_continuous  # add to config
 
@@ -208,7 +210,8 @@ class DreamerV3Agent(OffPolicyAgent):
                 store the last data and reset all
                 (o_t, a_t = 0 for dones, r_t, term_t, trunc_t, is_first_t)
                 """
-                acts[done_idxes] = np.zeros((len(done_idxes), ))
+                extra_shape = () if not self.is_continuous else self.act_shape
+                acts[done_idxes] = np.zeros((len(done_idxes), ) + extra_shape)
                 if self.atari:  # use truncs to train in xc_atari
                     terms = deepcopy(truncs)
                 self.memory.store(obs, acts, self._process_reward(rews), terms, truncs, is_first)
